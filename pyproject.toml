@@ -3,14 +3,35 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "asgi-framework"
+name = "artanis"
 version = "0.1.0"
-description = "A simple ASGI framework with named routes"
+description = "A simple, yet fast, Python framework with named routes"
+readme = "README.md"
+license = {text = "MIT"}
 authors = [
-    {name = "Your Name", email = "your.email@example.com"},
+    {name = "nordxai"},
+]
+keywords = ["asgi", "web", "framework", "async", "routes"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP :: WSGI :: Application",
+    "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 requires-python = ">=3.8"
 dependencies = []
+
+[project.urls]
+"Homepage" = "https://github.com/nordxai/artanis"
+"Bug Reports" = "https://github.com/nordxai/artanis/issues"
+"Source" = "https://github.com/nordxai/artanis"
 
 [project.optional-dependencies]
 dev = [
@@ -19,8 +40,8 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["asgi_framework*"]
+where = ["src"]
+include = ["artanis*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
