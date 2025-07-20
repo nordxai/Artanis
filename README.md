@@ -16,9 +16,15 @@ A lightweight, minimalist ASGI web framework for Python built with simplicity an
 ## Installation
 
 ```bash
+pip install artanis
+```
+
+### Development Installation
+
+```bash
 # Clone the repository
-git clone <your-repo-url>
-cd projectArtanis
+git clone https://github.com/nordxai/artanis
+cd artanis
 
 # Create virtual environment
 python -m venv venv
@@ -33,7 +39,7 @@ pip install -e .
 ### Basic Application
 
 ```python
-from src.asgi import App
+from artanis import App
 
 app = App()
 
@@ -62,7 +68,7 @@ app.post("/users", create_user)
 ```python
 # main.py
 import uvicorn
-from src.asgi import App
+from artanis import App
 
 app = App()
 
@@ -86,6 +92,7 @@ The main application class that handles route registration and request routing.
 #### Methods
 
 ##### `app.get(path: str, handler: Callable)`
+
 Register a GET route handler.
 
 ```python
@@ -96,6 +103,7 @@ app.get("/api/data", handler)
 ```
 
 ##### `app.post(path: str, handler: Callable)`
+
 Register a POST route handler.
 
 ```python
@@ -107,6 +115,7 @@ app.post("/api/items", create_item)
 ```
 
 ##### `app.put(path: str, handler: Callable)`
+
 Register a PUT route handler.
 
 ```python
@@ -118,6 +127,7 @@ app.put("/api/items/{item_id}", update_item)
 ```
 
 ##### `app.delete(path: str, handler: Callable)`
+
 Register a DELETE route handler.
 
 ```python
@@ -134,6 +144,7 @@ The request object provides access to the incoming HTTP request data.
 #### Methods
 
 ##### `await request.body()`
+
 Get the raw request body as bytes.
 
 ```python
@@ -143,6 +154,7 @@ async def handler(request):
 ```
 
 ##### `await request.json()`
+
 Parse the request body as JSON.
 
 ```python
@@ -214,18 +226,21 @@ All errors are returned as JSON responses:
 Artanis automatically inspects your handler functions and provides the appropriate arguments:
 
 ### No Parameters
+
 ```python
 async def simple_handler():
     return {"message": "Hello"}
 ```
 
 ### Path Parameters Only
+
 ```python
 async def user_handler(user_id):
     return {"user_id": user_id}
 ```
 
 ### Request Object Only
+
 ```python
 async def create_handler(request):
     data = await request.json()
@@ -233,6 +248,7 @@ async def create_handler(request):
 ```
 
 ### Mixed Parameters
+
 ```python
 async def update_handler(user_id, request):
     data = await request.json()
@@ -261,10 +277,11 @@ pytest tests/
 
 ### Project Structure
 
-```
-projectArtanis/
+```md
+artanis/
 ├── src/
-│   └── asgi.py          # Main framework code
+│   └── artanis/
+│       └── __init__.py  # Main framework code
 ├── tests/
 │   └── test_asgi.py     # Test suite
 ├── pyproject.toml       # Project configuration
