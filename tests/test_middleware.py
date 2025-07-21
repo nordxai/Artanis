@@ -10,7 +10,7 @@ class TestMiddleware:
     
     def test_use_global_middleware(self):
         """Test app.use(middleware_func) registration for global middleware"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         async def global_middleware(request, response, next):
@@ -24,7 +24,7 @@ class TestMiddleware:
     
     def test_use_path_middleware(self):
         """Test app.use('/path', middleware_func) registration for path-based middleware"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         async def api_middleware(request, response, next):
@@ -39,7 +39,7 @@ class TestMiddleware:
     
     def test_middleware_storage_separation(self):
         """Test that global and path middleware are stored separately"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         async def global_middleware(request, response, next):
@@ -59,7 +59,7 @@ class TestMiddleware:
     
     def test_multiple_middleware_same_path(self):
         """Test multiple middleware registered for the same path"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         async def middleware1(request, response, next):
@@ -80,7 +80,7 @@ class TestMiddleware:
     @pytest.mark.asyncio
     async def test_global_middleware_execution(self):
         """Test that global middleware runs on all routes"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         middleware_called = False
@@ -112,7 +112,7 @@ class TestMiddleware:
     @pytest.mark.asyncio
     async def test_multiple_global_middleware_order(self):
         """Test execution order for multiple global middleware"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         execution_order = []
@@ -159,7 +159,7 @@ class TestMiddleware:
     @pytest.mark.asyncio
     async def test_global_middleware_request_modification(self):
         """Test that global middleware can modify request"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         async def request_modifier(request, response, next):
@@ -193,7 +193,7 @@ class TestMiddleware:
     @pytest.mark.asyncio
     async def test_global_middleware_response_modification(self):
         """Test that global middleware can modify response"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         async def response_modifier(request, response, next):
@@ -229,7 +229,7 @@ class TestMiddleware:
     @pytest.mark.asyncio
     async def test_path_middleware_matching(self):
         """Test that path middleware only runs on matching paths"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         api_middleware_called = False
@@ -287,7 +287,7 @@ class TestMiddleware:
     @pytest.mark.asyncio
     async def test_path_middleware_with_parameters(self):
         """Test path middleware works with route parameters like /users/{id}"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         user_middleware_called = False
@@ -324,7 +324,7 @@ class TestMiddleware:
     @pytest.mark.asyncio
     async def test_nested_path_middleware(self):
         """Test middleware interaction with nested paths like /api and /api/users"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         api_middleware_called = False
@@ -365,7 +365,7 @@ class TestMiddleware:
     @pytest.mark.asyncio
     async def test_path_middleware_execution_order(self):
         """Test execution order within path-specific middleware"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         execution_order = []
@@ -405,7 +405,7 @@ class TestMiddleware:
     @pytest.mark.asyncio
     async def test_global_and_path_middleware_order(self):
         """Test execution order: Global → Path → Handler → Path → Global"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         execution_order = []
@@ -451,7 +451,7 @@ class TestMiddleware:
     @pytest.mark.asyncio 
     async def test_middleware_chain_with_route_params(self):
         """Test full middleware chain with path parameters"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         middleware_user_id = None
@@ -488,7 +488,7 @@ class TestMiddleware:
     @pytest.mark.asyncio
     async def test_middleware_early_response(self):
         """Test middleware returning response without calling next()"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         handler_called = False
@@ -533,7 +533,7 @@ class TestMiddleware:
     @pytest.mark.asyncio
     async def test_next_function_continues_chain(self):
         """Test that await next() continues execution chain"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         next_called = False
@@ -569,7 +569,7 @@ class TestMiddleware:
     @pytest.mark.asyncio
     async def test_middleware_without_next_call(self):
         """Test middleware that doesn't call next()"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         handler_called = False
@@ -608,7 +608,7 @@ class TestMiddleware:
     @pytest.mark.asyncio
     async def test_next_with_error_handling(self):
         """Test error handling in middleware chain"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         error_caught = False
@@ -655,7 +655,7 @@ class TestMiddleware:
     @pytest.mark.asyncio
     async def test_cors_middleware_global(self):
         """Test CORS middleware example"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         async def cors_middleware(request, response, next):
@@ -690,7 +690,7 @@ class TestMiddleware:
     @pytest.mark.asyncio
     async def test_auth_middleware_on_admin_routes(self):
         """Test authentication middleware only on /admin/* routes"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         async def auth_middleware(request, response, next):
@@ -755,7 +755,7 @@ class TestMiddleware:
     @pytest.mark.asyncio
     async def test_logging_and_timing_middleware(self):
         """Test request logging and timing middleware"""
-        from src.artanis import App
+        from artanis import App
         import time
         app = App()
         
@@ -812,7 +812,7 @@ class TestMiddleware:
     @pytest.mark.asyncio
     async def test_rate_limiting_middleware(self):
         """Test rate limiting middleware on specific paths"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         request_counts = {}
