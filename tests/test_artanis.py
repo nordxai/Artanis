@@ -8,13 +8,13 @@ class TestASGIFramework:
     
     def test_create_app_instance(self):
         """Test that we can create an app instance"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         assert app is not None
     
     def test_register_get_route(self):
         """Test registering a GET route using app.get(path, handler)"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         async def hello_handler():
@@ -28,7 +28,7 @@ class TestASGIFramework:
     
     def test_register_post_route(self):
         """Test registering a POST route using app.post(path, handler)"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         async def create_user_handler():
@@ -42,7 +42,7 @@ class TestASGIFramework:
     
     def test_multiple_routes_same_path_different_methods(self):
         """Test registering multiple routes with same path but different methods"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         async def get_users_handler():
@@ -64,7 +64,7 @@ class TestASGIFramework:
     @pytest.mark.asyncio
     async def test_asgi_application_callable(self):
         """Test that app can be called as ASGI application"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         async def test_handler():
@@ -89,7 +89,7 @@ class TestASGIFramework:
     @pytest.mark.asyncio
     async def test_route_handler_execution(self):
         """Test that route handlers are executed correctly"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         async def hello_handler():
@@ -117,7 +117,7 @@ class TestASGIFramework:
     @pytest.mark.asyncio
     async def test_404_for_unregistered_route(self):
         """Test 404 response for unregistered routes"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         scope = {
@@ -139,7 +139,7 @@ class TestASGIFramework:
     @pytest.mark.asyncio
     async def test_method_not_allowed(self):
         """Test 405 response for wrong HTTP method"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         async def get_users_handler():
@@ -165,7 +165,7 @@ class TestASGIFramework:
     
     def test_route_with_path_parameters(self):
         """Test registering routes with path parameters"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         async def get_user_handler(user_id):
@@ -178,7 +178,7 @@ class TestASGIFramework:
     @pytest.mark.asyncio
     async def test_path_parameter_extraction(self):
         """Test that path parameters are extracted and passed to handlers"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         async def get_user_handler(user_id):
@@ -204,7 +204,7 @@ class TestASGIFramework:
     
     def test_put_route_method(self):
         """Test PUT route method"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         async def update_user_handler(user_id):
@@ -216,7 +216,7 @@ class TestASGIFramework:
     
     def test_delete_route_method(self):
         """Test DELETE route method"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         async def delete_user_handler(user_id):
@@ -229,7 +229,7 @@ class TestASGIFramework:
     @pytest.mark.asyncio
     async def test_request_object_passed_to_handler(self):
         """Test that request object is passed to POST handlers"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         async def create_user_handler(request):
@@ -261,7 +261,7 @@ class TestASGIFramework:
     
     def test_multiple_path_parameters(self):
         """Test routes with multiple path parameters"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         async def get_user_post_handler(user_id, post_id):
@@ -275,7 +275,7 @@ class TestASGIFramework:
     @pytest.mark.asyncio
     async def test_multiple_path_parameters_extraction(self):
         """Test extraction of multiple path parameters"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         async def get_user_post_handler(user_id, post_id):
@@ -301,7 +301,7 @@ class TestASGIFramework:
     
     def test_handler_with_mixed_parameters(self):
         """Test handler that receives both path params and request object"""
-        from src.artanis import App
+        from artanis import App
         app = App()
         
         async def update_user_handler(user_id, request):
