@@ -1,4 +1,8 @@
-# Artanis ASGI Framework
+# Artanis
+
+![Tests](https://github.com/nordxai/artanis/workflows/Tests/badge.svg)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/license-Open%20Source-green.svg)](LICENSE)
 
 A lightweight, minimalist ASGI web framework for Python built with simplicity and performance in mind. Artanis provides a clean, intuitive API for building modern web applications using named routes.
 
@@ -644,7 +648,8 @@ artanis/
 │   └── artanis/
 │       └── __init__.py  # Main framework code
 ├── tests/
-│   └── test_asgi.py     # Test suite
+│   ├── test_artanis.py     # Framework tests (16 tests)
+│   └── test_middleware.py  # Middleware tests (22 tests)
 ├── pyproject.toml       # Project configuration
 └── README.md           # This file
 ```
