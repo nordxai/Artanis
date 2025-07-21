@@ -2,6 +2,7 @@ import json
 import re
 import inspect
 from typing import Dict, Callable, Any, List, Tuple
+from .middleware import MiddlewareManager, MiddlewareExecutor, Response
 
 
 class Request:
@@ -9,6 +10,8 @@ class Request:
         self.scope = scope
         self.receive = receive
         self._body = None
+        self.path_params = {}  # For middleware access to path parameters
+        self.headers = dict(scope.get("headers", []))
     
     async def body(self):
         if self._body is None:
@@ -37,6 +40,8 @@ class RoutesDict(dict):
 class App:
     def __init__(self):
         self._routes = {}
+        self.middleware_manager = MiddlewareManager()
+        self.middleware_executor = MiddlewareExecutor(self.middleware_manager)
 
     @property
     def routes(self):
@@ -82,6 +87,24 @@ class App:
 
     def delete(self, path: str, handler: Callable):
         self._register_route("DELETE", path, handler)
+    
+    def use(self, path_or_middleware, middleware=None):
+        """Register middleware - Express style app.use() API"""
+        if middleware is None:
+            # app.use(middleware_func) - Global middleware
+            self.middleware_manager.add_global(path_or_middleware)
+        else:
+            # app.use("/path", middleware_func) - Path-based middleware
+            self.middleware_manager.add_path(path_or_middleware, middleware)
+    
+    # Properties for backward compatibility with tests
+    @property
+    def global_middleware(self):
+        return self.middleware_manager.global_middleware
+    
+    @property
+    def path_middleware(self):
+        return self.middleware_manager.path_middleware
 
     def _find_route(self, method: str, path: str) -> Tuple[Dict, Dict]:
         for route_path, methods in self._routes.items():
@@ -135,6 +158,35 @@ class App:
 
     async def _send_error_response(self, send, status: int, message: str):
         await self._send_json_response(send, status, {"error": message})
+    
+    async def _send_response(self, send, response: Response):
+        """Send response using middleware Response object"""
+        response_body = response.to_bytes()
+        
+        # Build headers list, ensuring content-length is set
+        headers = response.get_headers_list()
+        
+        # Add content-length if not already set
+        content_length_set = any(name.lower() == b"content-length" for name, _ in headers)
+        if not content_length_set:
+            headers.append((b"content-length", str(len(response_body)).encode()))
+        
+        # Add content-type if not already set and body is JSON
+        content_type_set = any(name.lower() == b"content-type" for name, _ in headers)
+        if not content_type_set and response.body is not None:
+            if isinstance(response.body, (dict, list)):
+                headers.append((b"content-type", b"application/json"))
+
+        await send({
+            "type": "http.response.start",
+            "status": response.status,
+            "headers": headers,
+        })
+
+        await send({
+            "type": "http.response.body",
+            "body": response_body,
+        })
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
@@ -143,17 +195,46 @@ class App:
         method = scope["method"]
         path = scope["path"]
 
-        route, path_params = self._find_route(method, path)
+        # Create request and response objects
+        request = Request(scope, receive)
+        response = Response()
 
-        if route:
-            try:
-                request = Request(scope, receive)
-                response_data = await self._call_handler(route["handler"], path_params, request)
-                await self._send_json_response(send, 200, response_data)
-            except Exception as e:
-                await self._send_error_response(send, 500, "Internal Server Error")
-        else:
-            if self._path_exists_with_different_method(path):
-                await self._send_error_response(send, 405, "Method Not Allowed")
+        # Find route and extract path params BEFORE middleware execution
+        route, path_params = self._find_route(method, path)
+        
+        # Add path params to request for middleware access
+        request.path_params = path_params
+        
+        # Define the final handler (route handler)
+        async def final_handler(req):            
+            if route:
+                try:
+                    response_data = await self._call_handler(route["handler"], path_params, req)
+                    if not response.is_finished():
+                        response.json(response_data)
+                    return response
+                except Exception as e:
+                    if not response.is_finished():
+                        response.set_status(500)
+                        response.json({"error": "Internal Server Error"})
+                    return response
             else:
-                await self._send_error_response(send, 404, "Not Found")
+                if self._path_exists_with_different_method(path):
+                    response.set_status(405)
+                    response.json({"error": "Method Not Allowed"})
+                else:
+                    response.set_status(404)
+                    response.json({"error": "Not Found"})
+                return response
+
+        try:
+            # Execute middleware chain
+            result = await self.middleware_executor.execute_with_error_handling(
+                request, response, path, final_handler
+            )
+            
+            # Send response
+            await self._send_response(send, response)
+            
+        except Exception as e:
+            await self._send_error_response(send, 500, "Internal Server Error")
