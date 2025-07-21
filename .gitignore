@@ -8,4 +8,6 @@ env/
 venv/
 ENV/
 .claude
-.egg-info
+*.egg-info
+context*
+dist/*
