@@ -1,0 +1,97 @@
+name: Tests
+
+on:
+  push:
+    branches: [ "*" ]
+  pull_request:
+    branches: [ "*" ]
+
+# Cancel in-progress runs for the same branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Create virtual environment
+      run: |
+        python -m venv venv
+        source venv/bin/activate
+        echo "VIRTUAL_ENV=${VIRTUAL_ENV}" >> $GITHUB_ENV
+        echo "${VIRTUAL_ENV}/bin" >> $GITHUB_PATH
+
+    - name: Install package in development mode
+      run: |
+        source venv/bin/activate
+        pip install --upgrade pip
+        pip install -e .
+
+    - name: Install test dependencies
+      run: |
+        source venv/bin/activate
+        pip install pytest pytest-asyncio
+
+    - name: Run Artanis framework tests
+      run: |
+        source venv/bin/activate
+        pytest tests/test_artanis.py -v --tb=short
+
+    - name: Run middleware tests
+      run: |
+        source venv/bin/activate
+        pytest tests/test_middleware.py -v --tb=short
+
+    - name: Run all tests together
+      run: |
+        source venv/bin/activate
+        pytest tests/ -v --tb=short
+
+    - name: Verify import paths
+      run: |
+        source venv/bin/activate
+        python -c "from artanis import App; print('✅ Package imports successfully')"
+        python -c "import sys; print(f'Python version: {sys.version}')"
+        python -c "from artanis import App; app = App(); print('✅ App instantiation successful')"
+
+  test-import-compatibility:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Test package installation and imports
+      run: |
+        python -m venv venv
+        source venv/bin/activate
+        pip install --upgrade pip
+        pip install -e .
+        
+        # Test various import scenarios
+        python -c "from artanis import App"
+        python -c "import artanis; app = artanis.App()"
+        python -c "from artanis import App; app = App(); app.get('/', lambda: {'test': True})"
+        
+        # Test middleware imports work
+        python -c "from artanis import App; app = App(); app.use(lambda r,res,n: n())"
+        
+        echo "✅ All import scenarios successful"
