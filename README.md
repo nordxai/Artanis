@@ -18,6 +18,7 @@ A lightweight, minimalist ASGI web framework for Python built with simplicity an
 - **Request Body Parsing**: Easy access to JSON request bodies
 - **Proper HTTP Status Codes**: Automatic 404, 405, and 500 error handling
 - **Type Hints**: Full type annotation support
+- **Structured Logging**: Built-in logging system with configurable formatters and request tracking
 
 ## 📦 Installation
 
@@ -553,6 +554,208 @@ async def rate_limit_middleware(request, response, next):
 app.use("/api", rate_limit_middleware)
 ```
 
+## 📊 Logging
+
+Artanis includes a comprehensive logging system that provides structured logging with configurable output formats and automatic request/response tracking.
+
+### Basic Logging Configuration
+
+By default, Artanis automatically configures logging and adds request logging middleware:
+
+```python
+from artanis import App
+from artanis.logging import ArtanisLogger
+
+# Configure logging (optional - has sensible defaults)
+ArtanisLogger.configure(
+    level="INFO",           # Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+    format_type="text",     # Format: "text" or "json"
+    output=None            # Output: None for stdout, or file path
+)
+
+app = App()  # Request logging is enabled by default
+```
+
+### Disable Request Logging
+
+```python
+# Disable automatic request logging
+app = App(enable_request_logging=False)
+```
+
+### Custom Logging Configuration
+
+```python
+from artanis.logging import ArtanisLogger
+
+# Text format logging to file
+ArtanisLogger.configure(
+    level="DEBUG",
+    format_type="text",
+    output="app.log"
+)
+
+# JSON format logging (great for structured log parsing)
+ArtanisLogger.configure(
+    level="INFO",
+    format_type="json",
+    output=None  # stdout
+)
+```
+
+### Using Loggers in Your Application
+
+```python
+from artanis import App
+from artanis.logging import ArtanisLogger
+
+# Get loggers for different components
+logger = ArtanisLogger.get_logger('app')
+db_logger = ArtanisLogger.get_logger('database')
+auth_logger = ArtanisLogger.get_logger('auth')
+
+app = App()
+
+async def login_handler(request):
+    auth_logger.info("Login attempt started")
+    
+    try:
+        data = await request.json()
+        username = data.get('username')
+        
+        # Simulate authentication
+        if not username:
+            auth_logger.warning("Login failed: missing username")
+            return {"error": "Username required"}
+            
+        auth_logger.info(f"Login successful for user: {username}")
+        return {"message": f"Welcome {username}"}
+        
+    except Exception as e:
+        auth_logger.error(f"Login error: {str(e)}")
+        return {"error": "Login failed"}
+
+app.post("/login", login_handler)
+```
+
+### Request Logging Middleware
+
+The built-in request logging middleware automatically logs:
+
+- Request start (method, path, client IP, request ID)
+- Request completion (status code, response time)
+- Request failures (errors, response time)
+
+```python
+from artanis import App
+from artanis.logging import RequestLoggingMiddleware
+import logging
+
+# Create custom request logger
+custom_logger = logging.getLogger('my_requests')
+custom_logger.setLevel(logging.INFO)
+
+# Use custom request logging middleware
+app = App(enable_request_logging=False)  # Disable default
+app.use(RequestLoggingMiddleware(logger=custom_logger))
+```
+
+### Log Output Examples
+
+#### Text Format
+```
+[2024-01-15 10:30:45] INFO in artanis.request: Request started
+[2024-01-15 10:30:45] INFO in artanis.auth: Login successful for user: john
+[2024-01-15 10:30:45] INFO in artanis.request: Request completed
+```
+
+#### JSON Format
+```json
+{"timestamp": "2024-01-15T10:30:45.123456", "level": "INFO", "logger": "artanis.request", "message": "Request started", "module": "logging", "function": "__call__", "line": 45, "request_id": "abc12345", "method": "POST", "path": "/login", "remote_addr": "127.0.0.1"}
+{"timestamp": "2024-01-15T10:30:45.234567", "level": "INFO", "logger": "artanis.auth", "message": "Login successful for user: john", "module": "main", "function": "login_handler", "line": 23}
+{"timestamp": "2024-01-15T10:30:45.345678", "level": "INFO", "logger": "artanis.request", "message": "Request completed", "module": "logging", "function": "__call__", "line": 67, "request_id": "abc12345", "method": "POST", "path": "/login", "status_code": 200, "response_time": "45.2ms"}
+```
+
+### Accessing Request ID in Handlers
+
+The request logging middleware adds a unique request ID to each request:
+
+```python
+async def my_handler(request):
+    request_id = getattr(request, 'request_id', 'unknown')
+    logger.info(f"Processing request {request_id}")
+    return {"request_id": request_id}
+```
+
+### Integration with Route Handlers
+
+Framework automatically logs route registration and handler errors:
+
+```python
+from artanis import App
+
+app = App()
+
+# Route registration is automatically logged at DEBUG level
+app.get("/users/{user_id}", get_user)  # Logs: "Registered GET route: /users/{user_id}"
+
+async def error_handler():
+    raise ValueError("Something went wrong")
+
+app.get("/error", error_handler)  # Handler errors are automatically logged
+```
+
+### Production Logging Best Practices
+
+```python
+import os
+from artanis import App
+from artanis.logging import ArtanisLogger
+
+# Environment-based configuration
+log_level = os.getenv('LOG_LEVEL', 'INFO')
+log_format = os.getenv('LOG_FORMAT', 'json')  # json for production
+log_file = os.getenv('LOG_FILE')  # None for stdout in containers
+
+ArtanisLogger.configure(
+    level=log_level,
+    format_type=log_format,
+    output=log_file
+)
+
+app = App()
+
+# Your routes here...
+```
+
+### Custom Log Fields
+
+You can add custom fields to structured JSON logs:
+
+```python
+import logging
+from artanis.logging import ArtanisLogger
+
+logger = ArtanisLogger.get_logger('custom')
+
+async def handler(request):
+    # Create log record with extra fields
+    logger.info(
+        "User action performed",
+        extra={
+            'user_id': '12345',
+            'action': 'create_post',
+            'resource_id': 'post_789'
+        }
+    )
+    return {"message": "Action logged"}
+```
+
+This produces JSON output with the extra fields:
+```json
+{"timestamp": "2024-01-15T10:30:45.123456", "level": "INFO", "logger": "artanis.custom", "message": "User action performed", "user_id": "12345", "action": "create_post", "resource_id": "post_789"}
+```
+
 ## 🎯 Multiple Methods for Same Path
 
 Artanis supports registering different handlers for the same path with different HTTP methods:
@@ -646,10 +849,13 @@ pytest tests/
 artanis/
 ├── src/
 │   └── artanis/
-│       └── __init__.py  # Main framework code
+│       ├── __init__.py     # Main framework code
+│       ├── logging.py      # Logging system
+│       └── middleware/     # Middleware system
 ├── tests/
 │   ├── test_artanis.py     # Framework tests (16 tests)
-│   └── test_middleware.py  # Middleware tests (22 tests)
+│   ├── test_middleware.py  # Middleware tests (22 tests)
+│   └── test_logging.py     # Logging tests (14 tests)
 ├── pyproject.toml       # Project configuration
 └── README.md           # This file
 ```
