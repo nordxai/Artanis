@@ -3,6 +3,7 @@ import re
 import inspect
 from typing import Dict, Callable, Any, List, Tuple
 from .middleware import MiddlewareManager, MiddlewareExecutor, Response
+from .logging import logger, ArtanisLogger, RequestLoggingMiddleware
 
 
 class Request:
@@ -38,10 +39,15 @@ class RoutesDict(dict):
         return self._all_routes
 
 class App:
-    def __init__(self):
+    def __init__(self, enable_request_logging: bool = True):
         self._routes = {}
         self.middleware_manager = MiddlewareManager()
         self.middleware_executor = MiddlewareExecutor(self.middleware_manager)
+        self.logger = logger
+        
+        # Add request logging middleware by default
+        if enable_request_logging:
+            self.use(RequestLoggingMiddleware())
 
     @property
     def routes(self):
@@ -69,6 +75,7 @@ class App:
             "path": path,
             "pattern": self._compile_path_pattern(path)
         }
+        self.logger.debug(f"Registered {method} route: {path}")
 
     def _compile_path_pattern(self, path: str) -> re.Pattern:
         pattern = re.escape(path)
@@ -214,6 +221,7 @@ class App:
                         response.json(response_data)
                     return response
                 except Exception as e:
+                    self.logger.error(f"Handler error in {route['method']} {route['path']}: {str(e)}")
                     if not response.is_finished():
                         response.set_status(500)
                         response.json({"error": "Internal Server Error"})
@@ -237,4 +245,5 @@ class App:
             await self._send_response(send, response)
             
         except Exception as e:
+            self.logger.error(f"Unhandled error: {str(e)}")
             await self._send_error_response(send, 500, "Internal Server Error")
