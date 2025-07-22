@@ -11,7 +11,7 @@ class TestMiddleware:
     def test_use_global_middleware(self):
         """Test app.use(middleware_func) registration for global middleware"""
         from artanis import App
-        app = App()
+        app = App(enable_request_logging=False)  # Disable request logging for clean test
         
         async def global_middleware(request, response, next):
             await next()
@@ -40,7 +40,7 @@ class TestMiddleware:
     def test_middleware_storage_separation(self):
         """Test that global and path middleware are stored separately"""
         from artanis import App
-        app = App()
+        app = App(enable_request_logging=False)  # Disable request logging for clean test
         
         async def global_middleware(request, response, next):
             await next()
