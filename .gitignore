@@ -10,4 +10,4 @@ ENV/
 .claude
 *.egg-info
 context*
-dist/*
+dist/
