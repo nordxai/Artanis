@@ -756,6 +756,333 @@ This produces JSON output with the extra fields:
 {"timestamp": "2024-01-15T10:30:45.123456", "level": "INFO", "logger": "artanis.custom", "message": "User action performed", "user_id": "12345", "action": "create_post", "resource_id": "post_789"}
 ```
 
+## 🔷 Type Hints Support
+
+Artanis provides comprehensive type hints throughout the framework, enabling excellent IDE support, static type checking, and improved developer experience. All public APIs are fully annotated with type information.
+
+### Framework Type Support
+
+The framework includes complete type annotations for:
+
+- **Route handlers**: Function signatures with proper parameter and return types
+- **Request/Response objects**: Full typing for all methods and attributes  
+- **Middleware functions**: Type annotations for middleware signatures
+- **App class**: Complete typing for all methods and properties
+- **Logging system**: Type hints for loggers, formatters, and middleware
+
+### IDE Integration
+
+With type hints enabled, your IDE can provide:
+
+- **Autocomplete**: Intelligent code completion for all framework methods
+- **Type checking**: Real-time error detection for type mismatches
+- **Documentation**: Hover information showing method signatures and docstrings
+- **Refactoring**: Safe renaming and refactoring with type awareness
+
+### Type Checking with mypy
+
+Artanis is fully compatible with static type checkers like mypy:
+
+```bash
+# Install mypy
+pip install mypy
+
+# Type check your application
+mypy your_app.py
+```
+
+### Type-Annotated Route Handlers
+
+Use type hints in your route handlers for better code quality:
+
+```python
+from typing import Dict, Any, Optional
+from artanis import App, Request
+
+app = App()
+
+# Type-annotated route handlers
+async def get_user(user_id: str) -> Dict[str, Any]:
+    """Get user by ID with typed return value."""
+    return {
+        "user_id": user_id,
+        "name": f"User {user_id}",
+        "active": True
+    }
+
+async def create_user(request: Request) -> Dict[str, str]:
+    """Create a new user with typed request and response."""
+    user_data: Dict[str, Any] = await request.json()
+    username: str = user_data.get("username", "")
+    
+    if not username:
+        return {"error": "Username required"}
+    
+    return {"message": f"Created user {username}"}
+
+async def update_user(user_id: str, request: Request) -> Dict[str, Any]:
+    """Update user with mixed parameters."""
+    user_data: Dict[str, Any] = await request.json()
+    
+    return {
+        "user_id": user_id,
+        "updated_fields": list(user_data.keys()),
+        "success": True
+    }
+
+# Register typed routes
+app.get("/users/{user_id}", get_user)
+app.post("/users", create_user)  
+app.put("/users/{user_id}", update_user)
+```
+
+### Type-Annotated Middleware
+
+Create type-safe middleware functions:
+
+```python
+from typing import Callable, Awaitable, Any
+from artanis import Request
+from artanis.middleware import Response
+
+# Type-annotated middleware
+async def auth_middleware(
+    request: Request, 
+    response: Response, 
+    next_middleware: Callable[[], Awaitable[Any]]
+) -> None:
+    """Authentication middleware with full type annotations."""
+    
+    auth_header: Optional[str] = request.headers.get("Authorization")
+    
+    if not auth_header or not auth_header.startswith("Bearer "):
+        response.set_status(401)
+        response.json({"error": "Authentication required"})
+        return
+    
+    # Add user info to request (typed)
+    request.user_id = extract_user_id(auth_header)
+    await next_middleware()
+
+async def logging_middleware(
+    request: Request,
+    response: Response, 
+    next_middleware: Callable[[], Awaitable[Any]]
+) -> None:
+    """Request logging middleware with type safety."""
+    import time
+    
+    start_time: float = time.time()
+    method: str = request.scope.get("method", "UNKNOWN")
+    path: str = request.scope.get("path", "/")
+    
+    print(f"→ {method} {path}")
+    
+    await next_middleware()
+    
+    duration: float = time.time() - start_time
+    status: int = response.status
+    print(f"← {method} {path} {status} ({duration:.3f}s)")
+
+app.use(auth_middleware)
+app.use(logging_middleware)
+```
+
+### Request Object Types
+
+The Request object provides typed methods for accessing request data:
+
+```python
+async def typed_request_handler(request: Request) -> Dict[str, Any]:
+    """Demonstrate typed request object usage."""
+    
+    # Typed body access
+    raw_body: bytes = await request.body()
+    
+    # Typed JSON parsing
+    json_data: Any = await request.json()  # Returns Any for flexibility
+    
+    # Type-safe header access
+    content_type: Optional[str] = request.headers.get("Content-Type")
+    user_agent: str = request.headers.get("User-Agent", "Unknown")
+    
+    # Typed path parameters
+    path_params: Dict[str, str] = request.path_params
+    
+    return {
+        "body_size": len(raw_body),
+        "has_json": json_data is not None,
+        "content_type": content_type,
+        "user_agent": user_agent,
+        "path_params": path_params
+    }
+```
+
+### Response Object Types
+
+The Response object methods are fully typed:
+
+```python
+from artanis.middleware import Response
+from typing import Optional, List, Tuple
+
+async def typed_response_middleware(
+    request: Request,
+    response: Response,
+    next_middleware: Callable[[], Awaitable[Any]]
+) -> None:
+    """Demonstrate typed response object usage."""
+    
+    # Execute handler first
+    await next_middleware()
+    
+    # Typed response modifications
+    response.set_status(200)  # status: int
+    response.set_header("X-Custom", "value")  # name: str, value: str
+    
+    # Type-safe header retrieval
+    custom_header: Optional[str] = response.get_header("X-Custom")
+    
+    # Typed response body
+    if isinstance(response.body, dict):
+        response.body["server"] = "Artanis"
+    
+    # Typed header list for ASGI
+    headers: List[Tuple[bytes, bytes]] = response.get_headers_list()
+    response_bytes: bytes = response.to_bytes()
+    is_done: bool = response.is_finished()
+```
+
+### Custom Type Definitions
+
+Create your own type definitions for domain objects:
+
+```python
+from typing import TypedDict, Optional, List
+from dataclasses import dataclass
+
+# Using TypedDict for structured data
+class UserData(TypedDict):
+    user_id: str
+    username: str
+    email: Optional[str]
+    active: bool
+
+class CreateUserRequest(TypedDict):
+    username: str
+    email: str
+    password: str
+
+# Using dataclasses for complex objects
+@dataclass
+class User:
+    id: str
+    username: str
+    email: Optional[str] = None
+    active: bool = True
+    
+    def to_dict(self) -> UserData:
+        return {
+            "user_id": self.id,
+            "username": self.username, 
+            "email": self.email,
+            "active": self.active
+        }
+
+# Typed route handlers with custom types
+async def get_user_typed(user_id: str) -> UserData:
+    """Return a user with structured typing."""
+    user = User(id=user_id, username=f"user_{user_id}")
+    return user.to_dict()
+
+async def create_user_typed(request: Request) -> UserData:
+    """Create user with structured request/response types."""
+    data: CreateUserRequest = await request.json()
+    
+    new_user = User(
+        id=generate_id(),
+        username=data["username"],
+        email=data["email"]
+    )
+    
+    return new_user.to_dict()
+
+app.get("/users/{user_id}", get_user_typed)
+app.post("/users", create_user_typed)
+```
+
+### Generic Type Support
+
+Use generic types for flexible, reusable code:
+
+```python
+from typing import TypeVar, Generic, Dict, Any, List
+
+T = TypeVar('T')
+
+class APIResponse(Generic[T]):
+    """Generic API response wrapper."""
+    
+    def __init__(self, data: T, message: str = "Success"):
+        self.data = data
+        self.message = message
+        self.success = True
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "data": self.data,
+            "message": self.message,
+            "success": self.success
+        }
+
+# Typed API responses
+async def get_users() -> Dict[str, Any]:
+    """Return typed API response."""
+    users: List[UserData] = [
+        {"user_id": "1", "username": "alice", "email": "alice@example.com", "active": True},
+        {"user_id": "2", "username": "bob", "email": None, "active": False}
+    ]
+    
+    response: APIResponse[List[UserData]] = APIResponse(users, "Users retrieved")
+    return response.to_dict()
+
+app.get("/users", get_users)
+```
+
+### Type Checking Configuration
+
+For optimal type checking, configure mypy in `mypy.ini` or `pyproject.toml`:
+
+```toml
+# pyproject.toml
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+```
+
+### Benefits of Type Hints
+
+Using type hints with Artanis provides:
+
+- **Better IDE Support**: Autocomplete, error detection, and refactoring
+- **Reduced Bugs**: Catch type-related errors before runtime
+- **Improved Documentation**: Type annotations serve as inline documentation
+- **Better Testing**: Type hints help ensure test data matches expected types
+- **Team Collaboration**: Clear interfaces make code easier to understand and maintain
+
+The `py.typed` file is included in the package, enabling full type checking support in any project that uses Artanis.
+
 ## 🎯 Multiple Methods for Same Path
 
 Artanis supports registering different handlers for the same path with different HTTP methods:
