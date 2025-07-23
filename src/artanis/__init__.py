@@ -1,20 +1,53 @@
+"""Artanis ASGI Web Framework.
+
+A lightweight, Express.js-inspired ASGI web framework for Python with 
+middleware support, path parameters, and comprehensive logging.
+"""
+
 import json
 import re
 import inspect
-from typing import Dict, Callable, Any, List, Tuple
+from typing import Dict, Callable, Any, List, Tuple, Optional, Union, Awaitable, Pattern
 from .middleware import MiddlewareManager, MiddlewareExecutor, Response
 from .logging import logger, ArtanisLogger, RequestLoggingMiddleware
 
+__version__ = "0.1.0"
+
 
 class Request:
-    def __init__(self, scope, receive):
+    """HTTP request object providing access to request data.
+    
+    This class encapsulates the ASGI scope and receive callable to provide
+    a convenient interface for accessing request data including headers,
+    body content, and path parameters.
+    
+    Args:
+        scope: ASGI scope dictionary containing request metadata
+        receive: ASGI receive callable for getting request body
+    
+    Attributes:
+        scope: The ASGI scope dictionary
+        receive: The ASGI receive callable  
+        path_params: Dictionary of extracted path parameters
+        headers: Dictionary of request headers
+    """
+    
+    def __init__(self, scope: Dict[str, Any], receive: Callable[[], Awaitable[Dict[str, Any]]]) -> None:
         self.scope = scope
         self.receive = receive
-        self._body = None
-        self.path_params = {}  # For middleware access to path parameters
-        self.headers = dict(scope.get("headers", []))
+        self._body: Optional[bytes] = None
+        self.path_params: Dict[str, str] = {}  # For middleware access to path parameters
+        self.headers: Dict[str, str] = dict(scope.get("headers", []))
     
-    async def body(self):
+    async def body(self) -> bytes:
+        """Get the request body as bytes.
+        
+        Reads and caches the complete request body from the ASGI receive callable.
+        The body is cached after the first call to avoid multiple reads.
+        
+        Returns:
+            The complete request body as bytes
+        """
         if self._body is None:
             body_parts = []
             while True:
@@ -26,21 +59,71 @@ class Request:
             self._body = b"".join(body_parts)
         return self._body
     
-    async def json(self):
+    async def json(self) -> Any:
+        """Parse request body as JSON.
+        
+        Reads the request body and parses it as JSON data.
+        
+        Returns:
+            Parsed JSON data (dict, list, or other JSON-serializable types)
+            
+        Raises:
+            json.JSONDecodeError: If the body is not valid JSON
+        """
         body = await self.body()
         return json.loads(body.decode())
 
 class RoutesDict(dict):
-    def __init__(self, all_routes):
+    """Custom dictionary for routes with additional methods.
+    
+    Extends the built-in dict to provide access to all routes
+    through the values() method while maintaining backwards compatibility.
+    
+    Args:
+        all_routes: List of all route objects for values() method
+    """
+    
+    def __init__(self, all_routes: List[Dict[str, Any]]) -> None:
         super().__init__()
         self._all_routes = all_routes
 
-    def values(self):
+    def values(self) -> List[Dict[str, Any]]:
+        """Return all routes for iteration.
+        
+        Returns:
+            List of all route dictionaries
+        """
         return self._all_routes
 
 class App:
-    def __init__(self, enable_request_logging: bool = True):
-        self._routes = {}
+    """Main Artanis application class.
+    
+    The core application class that handles route registration, middleware
+    management, and ASGI request processing. Provides an Express.js-inspired
+    API for building web applications.
+    
+    Args:
+        enable_request_logging: Whether to enable automatic request logging
+        
+    Attributes:
+        middleware_manager: Manages global and path-based middleware
+        middleware_executor: Executes middleware chains
+        logger: Application logger instance
+    
+    Example:
+        ```python
+        from artanis import App
+        
+        app = App()
+        
+        @app.get('/hello/{name}')
+        async def hello(name: str):
+            return {'message': f'Hello, {name}!'}
+        ```
+    """
+    
+    def __init__(self, enable_request_logging: bool = True) -> None:
+        self._routes: Dict[str, Dict[str, Dict[str, Any]]] = {}
         self.middleware_manager = MiddlewareManager()
         self.middleware_executor = MiddlewareExecutor(self.middleware_manager)
         self.logger = logger
@@ -50,7 +133,15 @@ class App:
             self.use(RequestLoggingMiddleware())
 
     @property
-    def routes(self):
+    def routes(self) -> RoutesDict:
+        """Get all registered routes.
+        
+        Returns a custom dictionary containing all routes with backwards
+        compatibility for existing tests.
+        
+        Returns:
+            RoutesDict containing all registered routes
+        """
         # Return flattened view for test compatibility
         flattened = {}
         all_routes = []  # For multiple method test
@@ -66,7 +157,17 @@ class App:
         result.update(flattened)
         return result
 
-    def _register_route(self, method: str, path: str, handler: Callable):
+    def _register_route(self, method: str, path: str, handler: Callable[..., Any]) -> None:
+        """Register a route with the application.
+        
+        Internal method to register a route handler for a specific HTTP method
+        and path pattern. Compiles the path pattern for parameter extraction.
+        
+        Args:
+            method: HTTP method (GET, POST, PUT, DELETE, etc.)
+            path: URL path pattern with optional parameters (e.g., '/users/{id}')
+            handler: Route handler function or coroutine
+        """
         if path not in self._routes:
             self._routes[path] = {}
         self._routes[path][method] = {
@@ -77,26 +178,77 @@ class App:
         }
         self.logger.debug(f"Registered {method} route: {path}")
 
-    def _compile_path_pattern(self, path: str) -> re.Pattern:
+    def _compile_path_pattern(self, path: str) -> Pattern[str]:
+        """Compile a path pattern into a regular expression.
+        
+        Converts path patterns with parameters (e.g., '/users/{id}') into
+        regular expressions that can extract parameter values.
+        
+        Args:
+            path: Path pattern with optional parameters
+            
+        Returns:
+            Compiled regular expression pattern
+        """
         pattern = re.escape(path)
         pattern = pattern.replace(r'\{', '(?P<').replace(r'\}', r'>[^/]+)')
         pattern = f"^{pattern}$"
         return re.compile(pattern)
 
-    def get(self, path: str, handler: Callable):
+    def get(self, path: str, handler: Callable[..., Any]) -> None:
+        """Register a GET route.
+        
+        Args:
+            path: URL path pattern
+            handler: Route handler function
+        """
         self._register_route("GET", path, handler)
 
-    def post(self, path: str, handler: Callable):
+    def post(self, path: str, handler: Callable[..., Any]) -> None:
+        """Register a POST route.
+        
+        Args:
+            path: URL path pattern
+            handler: Route handler function
+        """
         self._register_route("POST", path, handler)
 
-    def put(self, path: str, handler: Callable):
+    def put(self, path: str, handler: Callable[..., Any]) -> None:
+        """Register a PUT route.
+        
+        Args:
+            path: URL path pattern
+            handler: Route handler function
+        """
         self._register_route("PUT", path, handler)
 
-    def delete(self, path: str, handler: Callable):
+    def delete(self, path: str, handler: Callable[..., Any]) -> None:
+        """Register a DELETE route.
+        
+        Args:
+            path: URL path pattern
+            handler: Route handler function
+        """
         self._register_route("DELETE", path, handler)
     
-    def use(self, path_or_middleware, middleware=None):
-        """Register middleware - Express style app.use() API"""
+    def use(self, path_or_middleware: Union[str, Callable], middleware: Optional[Callable] = None) -> None:
+        """Register middleware - Express style app.use() API.
+        
+        Register middleware either globally or for specific paths.
+        
+        Args:
+            path_or_middleware: Either a path pattern (str) or middleware function
+            middleware: Middleware function (when first arg is a path)
+            
+        Examples:
+            ```python
+            # Global middleware
+            app.use(cors_middleware)
+            
+            # Path-specific middleware  
+            app.use('/api', auth_middleware)
+            ```
+        """
         if middleware is None:
             # app.use(middleware_func) - Global middleware
             self.middleware_manager.add_global(path_or_middleware)
@@ -106,14 +258,33 @@ class App:
     
     # Properties for backward compatibility with tests
     @property
-    def global_middleware(self):
+    def global_middleware(self) -> List[Callable]:
+        """Get global middleware list.
+        
+        Returns:
+            List of global middleware functions
+        """
         return self.middleware_manager.global_middleware
     
-    @property
-    def path_middleware(self):
+    @property  
+    def path_middleware(self) -> Dict[str, List[Callable]]:
+        """Get path-based middleware dictionary.
+        
+        Returns:
+            Dictionary mapping paths to middleware lists
+        """
         return self.middleware_manager.path_middleware
 
-    def _find_route(self, method: str, path: str) -> Tuple[Dict, Dict]:
+    def _find_route(self, method: str, path: str) -> Tuple[Optional[Dict[str, Any]], Dict[str, str]]:
+        """Find a route handler and extract path parameters.
+        
+        Args:
+            method: HTTP method
+            path: Request path
+            
+        Returns:
+            Tuple of (route_info, path_parameters) or (None, {}) if not found
+        """
         for route_path, methods in self._routes.items():
             if method in methods:
                 route_info = methods[method]
@@ -123,6 +294,17 @@ class App:
         return None, {}
 
     def _path_exists_with_different_method(self, path: str) -> bool:
+        """Check if path exists with a different HTTP method.
+        
+        Used to determine whether to return 405 Method Not Allowed
+        instead of 404 Not Found.
+        
+        Args:
+            path: Request path to check
+            
+        Returns:
+            True if path exists with different method, False otherwise
+        """
         for route_path, methods in self._routes.items():
             for method, route_info in methods.items():
                 match = route_info["pattern"].match(path)
@@ -130,7 +312,20 @@ class App:
                     return True
         return False
 
-    async def _call_handler(self, handler: Callable, path_params: dict, request: Request = None):
+    async def _call_handler(self, handler: Callable[..., Any], path_params: Dict[str, str], request: Optional[Request] = None) -> Any:
+        """Call a route handler with appropriate parameters.
+        
+        Inspects the handler signature and provides path parameters and
+        request object as needed.
+        
+        Args:
+            handler: Route handler function
+            path_params: Extracted path parameters
+            request: Request object (optional)
+            
+        Returns:
+            Handler response data
+        """
         sig = inspect.signature(handler)
         params = list(sig.parameters.keys())
 
@@ -146,7 +341,14 @@ class App:
         else:
             return handler(*args)
 
-    async def _send_json_response(self, send, status: int, data: Any):
+    async def _send_json_response(self, send: Callable, status: int, data: Any) -> None:
+        """Send a JSON response.
+        
+        Args:
+            send: ASGI send callable
+            status: HTTP status code
+            data: Data to serialize as JSON
+        """
         response_body = json.dumps(data).encode()
 
         await send({
@@ -163,11 +365,23 @@ class App:
             "body": response_body,
         })
 
-    async def _send_error_response(self, send, status: int, message: str):
+    async def _send_error_response(self, send: Callable, status: int, message: str) -> None:
+        """Send an error response.
+        
+        Args:
+            send: ASGI send callable
+            status: HTTP status code
+            message: Error message
+        """
         await self._send_json_response(send, status, {"error": message})
     
-    async def _send_response(self, send, response: Response):
-        """Send response using middleware Response object"""
+    async def _send_response(self, send: Callable, response: Response) -> None:
+        """Send response using middleware Response object.
+        
+        Args:
+            send: ASGI send callable
+            response: Response object with headers, status, and body
+        """
         response_body = response.to_bytes()
         
         # Build headers list, ensuring content-length is set
@@ -195,7 +409,17 @@ class App:
             "body": response_body,
         })
 
-    async def __call__(self, scope, receive, send):
+    async def __call__(self, scope: Dict[str, Any], receive: Callable, send: Callable) -> None:
+        """ASGI application entry point.
+        
+        Handles incoming HTTP requests by routing them through the middleware
+        chain to the appropriate route handler.
+        
+        Args:
+            scope: ASGI scope dictionary
+            receive: ASGI receive callable
+            send: ASGI send callable
+        """
         if scope["type"] != "http":
             return
 
