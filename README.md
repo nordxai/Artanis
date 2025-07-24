@@ -14,6 +14,7 @@ A lightweight, minimalist ASGI web framework for Python built with simplicity an
 - **ASGI Compliant**: Works with any ASGI server (Uvicorn, Hypercorn, etc.)
 - **Express-Style Middleware**: Powerful middleware system with `app.use()` API
 - **Path-Based Middleware**: Apply middleware to specific routes or paths
+- **Exception Handling**: Comprehensive custom exception system with structured error responses
 - **Automatic JSON Responses**: Built-in JSON serialization for response data
 - **Request Body Parsing**: Easy access to JSON request bodies
 - **Proper HTTP Status Codes**: Automatic 404, 405, and 500 error handling
@@ -1100,21 +1101,195 @@ app.get("/users", get_users)
 app.post("/users", create_user)
 ```
 
-## ⚠️ Error Handling
+## ⚠️ Exception Handling
 
-Artanis automatically handles common HTTP errors:
+Artanis provides a comprehensive exception handling system with custom exception classes, structured error responses, and automatic error logging.
 
-- **404 Not Found**: When no route matches the request path
-- **405 Method Not Allowed**: When the path exists but the HTTP method is not supported
-- **500 Internal Server Error**: When an unhandled exception occurs in a route handler
+### Built-in Exception Classes
 
-All errors are returned as JSON responses:
+Artanis includes a hierarchy of custom exceptions for common web application scenarios:
+
+```python
+from artanis.exceptions import (
+    RouteNotFound, MethodNotAllowed, ValidationError,
+    AuthenticationError, AuthorizationError, HandlerError
+)
+```
+
+#### Exception Hierarchy
+
+- **`ArtanisException`**: Base exception class with status codes and structured error data
+- **`RouteNotFound`** (404): When no route matches the request path
+- **`MethodNotAllowed`** (405): When path exists but HTTP method not supported
+- **`ValidationError`** (400): For request validation failures
+- **`AuthenticationError`** (401): When authentication is required but not provided
+- **`AuthorizationError`** (403): When user lacks permission for requested resource
+- **`HandlerError`** (500): When route handler execution fails
+- **`MiddlewareError`** (500): When middleware encounters errors
+- **`ConfigurationError`** (500): For framework configuration issues
+- **`RateLimitError`** (429): When rate limits are exceeded
+
+### Structured Error Responses
+
+All exceptions return structured JSON responses with detailed error information:
 
 ```json
 {
-  "error": "Not Found"
+  "error": "Route not found: GET /api/nonexistent",
+  "error_code": "ROUTE_NOT_FOUND",
+  "status_code": 404,
+  "details": {
+    "path": "/api/nonexistent",
+    "method": "GET"
+  }
 }
 ```
+
+### Using Exceptions in Handlers
+
+```python
+from artanis import App
+from artanis.exceptions import ValidationError, AuthenticationError
+
+app = App()
+
+async def create_user(request):
+    try:
+        data = await request.json()
+        
+        # Validate required fields
+        if not data.get('email'):
+            raise ValidationError(
+                "Email is required",
+                field="email",
+                validation_errors={"email": "Missing required field"}
+            )
+        
+        # Check authentication
+        if not request.headers.get('authorization'):
+            raise AuthenticationError("Bearer token required", auth_type="bearer")
+        
+        return {"message": "User created", "data": data}
+        
+    except ValidationError:
+        # ValidationError is automatically handled by the framework
+        raise
+    except Exception as e:
+        # Other exceptions are wrapped in HandlerError
+        raise HandlerError(f"Failed to create user: {str(e)}")
+
+app.post("/users", create_user)
+```
+
+### Exception Handler Middleware
+
+Use the built-in exception handler middleware for centralized error handling:
+
+```python
+from artanis import App
+from artanis.middleware import ExceptionHandlerMiddleware
+
+app = App()
+
+# Add exception handling middleware
+exception_handler = ExceptionHandlerMiddleware(
+    debug=True,  # Include detailed error info in development
+    include_traceback=True  # Include stack traces in debug mode
+)
+app.use(exception_handler)
+
+# Add custom handler for specific exceptions
+def handle_validation_error(exc, request, response):
+    response.set_status(400)
+    response.json({
+        "error": "Validation failed",
+        "details": exc.details,
+        "suggestions": ["Check required fields", "Validate data types"]
+    })
+    return response
+
+exception_handler.add_handler(ValidationError, handle_validation_error)
+```
+
+### Request Validation Middleware
+
+Automatic request validation with the validation middleware:
+
+```python
+from artanis.middleware import ValidationMiddleware
+
+# Create validation middleware
+validator = ValidationMiddleware(
+    validate_json=True,
+    required_fields=["name", "email"],
+    custom_validators={
+        "email": lambda email: "@" in email and "." in email,
+        "age": lambda age: isinstance(age, int) and age >= 0
+    }
+)
+
+# Apply to specific routes
+app.use("/api/users", validator)
+```
+
+### Error Logging Integration
+
+All exceptions are automatically logged with structured context:
+
+```python
+# Error logs include request context and exception details
+# Example log output (JSON format):
+{
+  "timestamp": "2024-01-15T10:30:45.123456",
+  "level": "ERROR",
+  "logger": "artanis",
+  "message": "VALIDATION_ERROR: Email is required",
+  "method": "POST",
+  "path": "/api/users",
+  "status_code": 400,
+  "error_code": "VALIDATION_ERROR",
+  "details": {"field": "email", "validation_errors": {"email": "Missing required field"}}
+}
+```
+
+### Creating Custom Exceptions
+
+Extend `ArtanisException` for application-specific errors:
+
+```python
+from artanis.exceptions import ArtanisException
+
+class InsufficientCreditsError(ArtanisException):
+    def __init__(self, required_credits, available_credits):
+        super().__init__(
+            message=f"Insufficient credits: need {required_credits}, have {available_credits}",
+            status_code=402,  # Payment Required
+            error_code="INSUFFICIENT_CREDITS",
+            details={
+                "required_credits": required_credits,
+                "available_credits": available_credits
+            }
+        )
+
+# Use in handlers
+async def purchase_handler(request):
+    user_credits = 10
+    item_cost = 25
+    
+    if user_credits < item_cost:
+        raise InsufficientCreditsError(item_cost, user_credits)
+    
+    return {"message": "Purchase successful"}
+```
+
+### Exception Handling Best Practices
+
+1. **Use Specific Exceptions**: Choose the most appropriate exception type for each scenario
+2. **Include Context**: Provide detailed error information in the `details` field
+3. **Log Appropriately**: Client errors (4xx) are logged as warnings, server errors (5xx) as errors
+4. **Validate Early**: Use validation middleware to catch errors before reaching handlers
+5. **Handle Gracefully**: Use exception middleware for consistent error responses
+6. **Debug Mode**: Enable debug mode in development for detailed error information
 
 ## ✍️ Handler Function Signatures
 
