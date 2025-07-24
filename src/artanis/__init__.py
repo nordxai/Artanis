@@ -8,8 +8,13 @@ import json
 import re
 import inspect
 from typing import Dict, Callable, Any, List, Tuple, Optional, Union, Awaitable, Pattern
-from .middleware import MiddlewareManager, MiddlewareExecutor, Response
+from .middleware import MiddlewareManager, MiddlewareExecutor, Response, ExceptionHandlerMiddleware, ValidationMiddleware
 from .logging import logger, ArtanisLogger, RequestLoggingMiddleware
+from .exceptions import (
+    ArtanisException, RouteNotFound, MethodNotAllowed, ValidationError,
+    ConfigurationError, MiddlewareError, HandlerError, AuthenticationError,
+    AuthorizationError, RateLimitError
+)
 
 __version__ = "0.1.0"
 
@@ -68,10 +73,18 @@ class Request:
             Parsed JSON data (dict, list, or other JSON-serializable types)
             
         Raises:
-            json.JSONDecodeError: If the body is not valid JSON
+            ValidationError: If the body is not valid JSON
         """
-        body = await self.body()
-        return json.loads(body.decode())
+        try:
+            body = await self.body()
+            return json.loads(body.decode())
+        except json.JSONDecodeError as e:
+            raise ValidationError(
+                message="Invalid JSON in request body",
+                field="body",
+                value=body.decode() if len(body) < 200 else body.decode()[:200] + "...",
+                validation_errors={"json_error": str(e)}
+            )
 
 class RoutesDict(dict):
     """Custom dictionary for routes with additional methods.
@@ -284,6 +297,10 @@ class App:
             
         Returns:
             Tuple of (route_info, path_parameters) or (None, {}) if not found
+            
+        Raises:
+            RouteNotFound: If no route matches the path
+            MethodNotAllowed: If path exists but method not allowed
         """
         for route_path, methods in self._routes.items():
             if method in methods:
@@ -293,7 +310,7 @@ class App:
                     return route_info, match.groupdict()
         return None, {}
 
-    def _path_exists_with_different_method(self, path: str) -> bool:
+    def _path_exists_with_different_method(self, path: str) -> Tuple[bool, List[str]]:
         """Check if path exists with a different HTTP method.
         
         Used to determine whether to return 405 Method Not Allowed
@@ -303,16 +320,17 @@ class App:
             path: Request path to check
             
         Returns:
-            True if path exists with different method, False otherwise
+            Tuple of (path_exists, allowed_methods)
         """
+        allowed_methods = []
         for route_path, methods in self._routes.items():
             for method, route_info in methods.items():
                 match = route_info["pattern"].match(path)
                 if match:
-                    return True
-        return False
+                    allowed_methods.append(method)
+        return len(allowed_methods) > 0, allowed_methods
 
-    async def _call_handler(self, handler: Callable[..., Any], path_params: Dict[str, str], request: Optional[Request] = None) -> Any:
+    async def _call_handler(self, handler: Callable[..., Any], path_params: Dict[str, str], request: Optional[Request] = None, route_info: Optional[Dict[str, Any]] = None) -> Any:
         """Call a route handler with appropriate parameters.
         
         Inspects the handler signature and provides path parameters and
@@ -322,24 +340,38 @@ class App:
             handler: Route handler function
             path_params: Extracted path parameters
             request: Request object (optional)
+            route_info: Route information for error context (optional)
             
         Returns:
             Handler response data
+            
+        Raises:
+            HandlerError: If handler execution fails
         """
-        sig = inspect.signature(handler)
-        params = list(sig.parameters.keys())
+        try:
+            sig = inspect.signature(handler)
+            params = list(sig.parameters.keys())
 
-        args = []
-        for param in params:
-            if param in path_params:
-                args.append(path_params[param])
-            elif param == "request" and request:
-                args.append(request)
+            args = []
+            for param in params:
+                if param in path_params:
+                    args.append(path_params[param])
+                elif param == "request" and request:
+                    args.append(request)
 
-        if inspect.iscoroutinefunction(handler):
-            return await handler(*args)
-        else:
-            return handler(*args)
+            if inspect.iscoroutinefunction(handler):
+                return await handler(*args)
+            else:
+                return handler(*args)
+        except Exception as e:
+            route_path = route_info.get("path") if route_info else None
+            method = route_info.get("method") if route_info else None
+            raise HandlerError(
+                message=f"Handler execution failed: {str(e)}",
+                route_path=route_path,
+                method=method,
+                original_error=e
+            )
 
     async def _send_json_response(self, send: Callable, status: int, data: Any) -> None:
         """Send a JSON response.
@@ -440,23 +472,32 @@ class App:
         async def final_handler(req):            
             if route:
                 try:
-                    response_data = await self._call_handler(route["handler"], path_params, req)
+                    response_data = await self._call_handler(route["handler"], path_params, req, route)
                     if not response.is_finished():
                         response.json(response_data)
                     return response
-                except Exception as e:
+                except HandlerError as e:
                     self.logger.error(f"Handler error in {route['method']} {route['path']}: {str(e)}")
+                    if not response.is_finished():
+                        response.set_status(e.status_code)
+                        response.json(e.to_dict())
+                    return response
+                except Exception as e:
+                    self.logger.error(f"Unexpected error in {route['method']} {route['path']}: {str(e)}")
                     if not response.is_finished():
                         response.set_status(500)
                         response.json({"error": "Internal Server Error"})
                     return response
             else:
-                if self._path_exists_with_different_method(path):
-                    response.set_status(405)
-                    response.json({"error": "Method Not Allowed"})
+                path_exists, allowed_methods = self._path_exists_with_different_method(path)
+                if path_exists:
+                    error = MethodNotAllowed(path, method, allowed_methods)
+                    response.set_status(error.status_code)
+                    response.json(error.to_dict())
                 else:
-                    response.set_status(404)
-                    response.json({"error": "Not Found"})
+                    error = RouteNotFound(path, method)
+                    response.set_status(error.status_code)
+                    response.json(error.to_dict())
                 return response
 
         try:
