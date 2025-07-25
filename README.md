@@ -1357,10 +1357,77 @@ artanis/
 ├── tests/
 │   ├── test_artanis.py     # Framework tests (16 tests)
 │   ├── test_middleware.py  # Middleware tests (22 tests)
-│   └── test_logging.py     # Logging tests (14 tests)
+│   ├── test_logging.py     # Logging tests (14 tests)
+│   ├── test_exceptions.py  # Exception tests (29 tests)
+│   └── test_version.py     # Version tests (13 tests)
 ├── pyproject.toml       # Project configuration
 └── README.md           # This file
 ```
+
+## 🔧 Version Management
+
+Artanis provides comprehensive version management following PEP 396 standards:
+
+### Accessing Version Information
+
+```python
+import artanis
+
+# Get version string
+print(artanis.__version__)  # "0.1.0"
+
+# Get version tuple for programmatic comparison
+print(artanis.VERSION)      # (0, 1, 0)
+print(artanis.version_info) # (0, 1, 0) - alias for VERSION
+
+# Use helper functions
+from artanis import get_version, get_version_info
+
+version_string = get_version()      # "0.1.0"
+version_tuple = get_version_info()  # (0, 1, 0)
+```
+
+### Version Components
+
+The version system provides multiple ways to access version information:
+
+- **`__version__`**: String version following semantic versioning (e.g., "0.1.0")
+- **`VERSION`**: Tuple of integers for programmatic access (e.g., (0, 1, 0))
+- **`version_info`**: Alias for VERSION tuple, similar to `sys.version_info`
+- **`get_version()`**: Function that returns the version string
+- **`get_version_info()`**: Function that returns the version tuple
+
+### Semantic Versioning
+
+Artanis follows [Semantic Versioning](https://semver.org/) principles:
+
+- **Major version** (0): Breaking changes or major feature releases
+- **Minor version** (1): New features that are backwards compatible
+- **Patch version** (0): Bug fixes and small improvements
+
+### Version in Applications
+
+```python
+from artanis import App, __version__
+
+app = App()
+
+@app.get('/version')
+async def get_app_version():
+    return {
+        "framework": "Artanis",
+        "version": __version__,
+        "components": {
+            "major": artanis.VERSION[0],
+            "minor": artanis.VERSION[1], 
+            "patch": artanis.VERSION[2]
+        }
+    }
+```
+
+### Dynamic Version Management
+
+The version is managed through a single source of truth in `src/artanis/_version.py` and dynamically read by `pyproject.toml` during package building. This ensures consistency across all access methods and package metadata.
 
 ## 📋 Requirements
 

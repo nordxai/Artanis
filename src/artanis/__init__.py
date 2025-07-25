@@ -15,8 +15,7 @@ from .exceptions import (
     ConfigurationError, MiddlewareError, HandlerError, AuthenticationError,
     AuthorizationError, RateLimitError
 )
-
-__version__ = "0.1.0"
+from ._version import __version__, VERSION, version_info, get_version, get_version_info
 
 
 class Request:
