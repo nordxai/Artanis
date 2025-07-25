@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "artanis"
-version = "0.1.0"
+dynamic = ["version"]
 description = "A simple, yet fast, Python framework with named routes"
 readme = "README.md"
 license = {text = "MIT"}
@@ -42,6 +42,9 @@ dev = [
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["artanis*"]
+
+[tool.setuptools.dynamic]
+version = {attr = "artanis._version.__version__"}
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
