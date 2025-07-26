@@ -150,7 +150,7 @@ class Request:
             )
 
 
-class RoutesDict(dict):
+class RoutesDict(Dict[str, Any]):
     """Custom dictionary for routes with additional methods.
 
     Extends the built-in dict to provide access to all routes
@@ -164,7 +164,7 @@ class RoutesDict(dict):
         super().__init__()
         self._all_routes = all_routes
 
-    def values(self) -> list[dict[str, Any]]:
+    def values(self) -> list[dict[str, Any]]:  # type: ignore[override]
         """Return all routes for iteration.
 
         Returns:
@@ -313,8 +313,8 @@ class App:
 
     def use(
         self,
-        path_or_middleware: str | Callable,
-        middleware: Callable | None = None,
+        path_or_middleware: str | Callable[..., Any],
+        middleware: Callable[..., Any] | None = None,
     ) -> None:
         """Register middleware - Express style app.use() API.
 
@@ -335,14 +335,15 @@ class App:
         """
         if middleware is None:
             # app.use(middleware_func) - Global middleware
-            self.middleware_manager.add_global(path_or_middleware)
-        else:
-            # app.use("/path", middleware_func) - Path-based middleware
+            if callable(path_or_middleware):
+                self.middleware_manager.add_global(path_or_middleware)
+        # app.use("/path", middleware_func) - Path-based middleware
+        elif isinstance(path_or_middleware, str):
             self.middleware_manager.add_path(path_or_middleware, middleware)
 
     # Properties for backward compatibility with tests
     @property
-    def global_middleware(self) -> list[Callable]:
+    def global_middleware(self) -> list[Callable[..., Any]]:
         """Get global middleware list.
 
         Returns:
@@ -351,7 +352,7 @@ class App:
         return self.middleware_manager.global_middleware
 
     @property
-    def path_middleware(self) -> dict[str, list[Callable]]:
+    def path_middleware(self) -> dict[str, list[Callable[..., Any]]]:
         """Get path-based middleware dictionary.
 
         Returns:
@@ -431,7 +432,7 @@ class App:
             sig = inspect.signature(handler)
             params = list(sig.parameters.keys())
 
-            args = []
+            args: list[Any] = []
             for param in params:
                 if param in path_params:
                     args.append(path_params[param])
@@ -451,7 +452,9 @@ class App:
                 original_error=e,
             )
 
-    async def _send_json_response(self, send: Callable, status: int, data: Any) -> None:
+    async def _send_json_response(
+        self, send: Callable[..., Any], status: int, data: Any
+    ) -> None:
         """Send a JSON response.
 
         Args:
@@ -480,7 +483,7 @@ class App:
         )
 
     async def _send_error_response(
-        self, send: Callable, status: int, message: str
+        self, send: Callable[..., Any], status: int, message: str
     ) -> None:
         """Send an error response.
 
@@ -491,7 +494,9 @@ class App:
         """
         await self._send_json_response(send, status, {"error": message})
 
-    async def _send_response(self, send: Callable, response: Response) -> None:
+    async def _send_response(
+        self, send: Callable[..., Any], response: Response
+    ) -> None:
         """Send response using middleware Response object.
 
         Args:
@@ -532,7 +537,10 @@ class App:
         )
 
     async def __call__(
-        self, scope: dict[str, Any], receive: Callable, send: Callable
+        self,
+        scope: dict[str, Any],
+        receive: Callable[..., Any],
+        send: Callable[..., Any],
     ) -> None:
         """ASGI application entry point.
 
@@ -561,7 +569,7 @@ class App:
         request.path_params = path_params
 
         # Define the final handler (route handler)
-        async def final_handler(req):
+        async def final_handler(req: Any) -> Any:
             if route:
                 try:
                     response_data = await self._call_handler(
@@ -591,13 +599,13 @@ class App:
                     path
                 )
                 if path_exists:
-                    error = MethodNotAllowed(path, method, allowed_methods)
-                    response.set_status(error.status_code)
-                    response.json(error.to_dict())
+                    method_error = MethodNotAllowed(path, method, allowed_methods)
+                    response.set_status(method_error.status_code)
+                    response.json(method_error.to_dict())
                 else:
-                    error = RouteNotFound(path, method)
-                    response.set_status(error.status_code)
-                    response.json(error.to_dict())
+                    route_error = RouteNotFound(path, method)
+                    response.set_status(route_error.status_code)
+                    response.json(route_error.to_dict())
                 return response
 
         try:

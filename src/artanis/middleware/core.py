@@ -7,7 +7,7 @@ global and path-based middleware with pattern matching capabilities.
 from __future__ import annotations
 
 import re
-from typing import Callable, Pattern
+from typing import Any, Callable, Pattern
 
 
 class MiddlewareManager:
@@ -35,10 +35,10 @@ class MiddlewareManager:
     """
 
     def __init__(self) -> None:
-        self.global_middleware: list[Callable] = []
-        self.path_middleware: dict[str, list[Callable]] = {}
+        self.global_middleware: list[Callable[..., Any]] = []
+        self.path_middleware: dict[str, list[Callable[..., Any]]] = {}
 
-    def add_global(self, middleware_func: Callable) -> None:
+    def add_global(self, middleware_func: Callable[..., Any]) -> None:
         """Add global middleware that runs on all routes.
 
         Global middleware is executed for every request regardless of the
@@ -49,7 +49,7 @@ class MiddlewareManager:
         """
         self.global_middleware.append(middleware_func)
 
-    def add_path(self, path: str, middleware_func: Callable) -> None:
+    def add_path(self, path: str, middleware_func: Callable[..., Any]) -> None:
         """Add path-based middleware that runs on specific routes.
 
         Path-based middleware only executes when the request path matches
@@ -63,7 +63,7 @@ class MiddlewareManager:
             self.path_middleware[path] = []
         self.path_middleware[path].append(middleware_func)
 
-    def find_matching_middleware(self, request_path: str) -> list[Callable]:
+    def find_matching_middleware(self, request_path: str) -> list[Callable[..., Any]]:
         """Find all path middleware that match the request path.
 
         Iterates through all registered path patterns and returns middleware
@@ -124,7 +124,9 @@ class MiddlewareManager:
 
         return re.compile(pattern)
 
-    def get_all_middleware_for_path(self, request_path: str) -> list[Callable]:
+    def get_all_middleware_for_path(
+        self, request_path: str
+    ) -> list[Callable[..., Any]]:
         """Get combined global and path middleware for a specific path.
 
         Returns middleware in execution order: global middleware first,

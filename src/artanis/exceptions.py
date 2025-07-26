@@ -104,9 +104,9 @@ class MethodNotAllowed(ArtanisException):
     """
 
     def __init__(
-        self, path: str, method: str, allowed_methods: list | None = None
+        self, path: str, method: str, allowed_methods: list[str] | None = None
     ) -> None:
-        details = {"path": path, "method": method}
+        details: dict[str, Any] = {"path": path, "method": method}
 
         if allowed_methods:
             details["allowed_methods"] = allowed_methods
@@ -143,7 +143,7 @@ class ValidationError(ArtanisException):
         value: Any | None = None,
         validation_errors: dict[str, Any] | None = None,
     ) -> None:
-        details = {}
+        details: dict[str, Any] = {}
 
         if field:
             details["field"] = field
