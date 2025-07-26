@@ -38,9 +38,57 @@ cd artanis
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# Install in development mode
-pip install -e .
+# Install in development mode with all dependencies
+pip install -e ".[dev]"
+
+# Install specific dependency groups
+pip install -e ".[test]"     # Testing dependencies only
+pip install -e ".[all]"      # All optional dependencies
 ```
+
+### Available Dependency Groups
+
+- **`dev`**: Development tools (black, isort, flake8, mypy, pre-commit, pytest)
+- **`test`**: Testing and coverage tools (pytest, pytest-asyncio, pytest-cov, coverage)
+- **`all`**: All optional dependencies combined
+
+## 📦 Package Metadata
+
+Artanis follows modern Python packaging standards with comprehensive metadata configuration in `pyproject.toml`. The package is designed for professional deployment and development workflows.
+
+### PyPI Classification
+
+The package includes extensive PyPI classifiers for optimal discoverability:
+
+- **Development Status**: Beta (stable API, production-ready)
+- **Environment**: Web Environment with AsyncIO framework support
+- **Audience**: Developers, IT professionals, system administrators
+- **Topics**: Web frameworks, HTTP servers, ASGI/WSGI applications, logging, monitoring
+- **Python Support**: 3.8+ including the latest Python 3.13
+- **Typing**: Fully typed with mypy compatibility
+
+### Project URLs
+
+- **Homepage & Repository**: [github.com/nordxai/artanis](https://github.com/nordxai/artanis)
+- **Issues & Bug Reports**: [Issues Tracker](https://github.com/nordxai/artanis/issues)
+- **Discussions**: [Community Discussions](https://github.com/nordxai/artanis/discussions)
+- **Changelog**: [Release Notes](https://github.com/nordxai/artanis/releases)
+
+### Build Configuration
+
+- **Build System**: Modern setuptools with PEP 517/518 compliance
+- **Dynamic Versioning**: Single source of truth from `src/artanis/_version.py`
+- **Package Discovery**: Automatic source package finding in `src/` layout
+- **Dependencies**: Zero runtime dependencies for maximum compatibility
+
+### Development Tool Configuration
+
+The package includes pre-configured settings for professional development tools:
+
+- **Testing**: pytest with asyncio support, coverage reporting
+- **Code Quality**: black formatting, isort import sorting, flake8 linting
+- **Type Checking**: mypy with strict settings and test overrides
+- **Coverage**: Source-based coverage with intelligent exclusions
 
 ## 🚀 Quick Start
 
