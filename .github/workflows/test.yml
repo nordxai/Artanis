@@ -85,13 +85,13 @@ jobs:
         source venv/bin/activate
         pip install --upgrade pip
         pip install -e .
-        
+
         # Test various import scenarios
         python -c "from artanis import App"
         python -c "import artanis; app = artanis.App()"
         python -c "from artanis import App; app = App(); app.get('/', lambda: {'test': True})"
-        
+
         # Test middleware imports work
         python -c "from artanis import App; app = App(); app.use(lambda r,res,n: n())"
-        
+
         echo "✅ All import scenarios successful"
