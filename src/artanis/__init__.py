@@ -4,31 +4,77 @@ A lightweight, Express.js-inspired ASGI web framework for Python with
 middleware support, path parameters, and comprehensive logging.
 """
 
+from __future__ import annotations
+
 import inspect
 import json
 import re
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Pattern, Tuple, Union
 
-from ._version import VERSION, __version__, get_version, get_version_info, version_info
-from .exceptions import (
-    ArtanisException,
-    AuthenticationError,
-    AuthorizationError,
-    ConfigurationError,
-    HandlerError,
-    MethodNotAllowed,
-    MiddlewareError,
-    RateLimitError,
-    RouteNotFound,
-    ValidationError,
+from ._version import (
+    VERSION as VERSION,
 )
-from .logging import ArtanisLogger, RequestLoggingMiddleware, logger
+from ._version import (
+    __version__ as __version__,
+)
+from ._version import (
+    get_version as get_version,
+)
+from ._version import (
+    get_version_info as get_version_info,
+)
+from ._version import (
+    version_info as version_info,
+)
+from .exceptions import (
+    ArtanisException as ArtanisException,
+)
+from .exceptions import (
+    AuthenticationError as AuthenticationError,
+)
+from .exceptions import (
+    AuthorizationError as AuthorizationError,
+)
+from .exceptions import (
+    ConfigurationError as ConfigurationError,
+)
+from .exceptions import (
+    HandlerError as HandlerError,
+)
+from .exceptions import (
+    MethodNotAllowed as MethodNotAllowed,
+)
+from .exceptions import (
+    MiddlewareError as MiddlewareError,
+)
+from .exceptions import (
+    RateLimitError as RateLimitError,
+)
+from .exceptions import (
+    RouteNotFound as RouteNotFound,
+)
+from .exceptions import (
+    ValidationError as ValidationError,
+)
+from .logging import (
+    ArtanisLogger as ArtanisLogger,
+)
+from .logging import (
+    RequestLoggingMiddleware as RequestLoggingMiddleware,
+)
+from .logging import (
+    logger,
+)
 from .middleware import (
-    ExceptionHandlerMiddleware,
+    ExceptionHandlerMiddleware as ExceptionHandlerMiddleware,
+)
+from .middleware import (
     MiddlewareExecutor,
     MiddlewareManager,
     Response,
-    ValidationMiddleware,
+)
+from .middleware import (
+    ValidationMiddleware as ValidationMiddleware,
 )
 
 
@@ -51,15 +97,15 @@ class Request:
     """
 
     def __init__(
-        self, scope: Dict[str, Any], receive: Callable[[], Awaitable[Dict[str, Any]]]
+        self, scope: dict[str, Any], receive: Callable[[], Awaitable[dict[str, Any]]]
     ) -> None:
         self.scope = scope
         self.receive = receive
-        self._body: Optional[bytes] = None
-        self.path_params: Dict[
+        self._body: bytes | None = None
+        self.path_params: dict[
             str, str
         ] = {}  # For middleware access to path parameters
-        self.headers: Dict[str, str] = dict(scope.get("headers", []))
+        self.headers: dict[str, str] = dict(scope.get("headers", []))
 
     async def body(self) -> bytes:
         """Get the request body as bytes.
@@ -114,11 +160,11 @@ class RoutesDict(dict):
         all_routes: List of all route objects for values() method
     """
 
-    def __init__(self, all_routes: List[Dict[str, Any]]) -> None:
+    def __init__(self, all_routes: list[dict[str, Any]]) -> None:
         super().__init__()
         self._all_routes = all_routes
 
-    def values(self) -> List[Dict[str, Any]]:
+    def values(self) -> list[dict[str, Any]]:
         """Return all routes for iteration.
 
         Returns:
@@ -155,7 +201,7 @@ class App:
     """
 
     def __init__(self, enable_request_logging: bool = True) -> None:
-        self._routes: Dict[str, Dict[str, Dict[str, Any]]] = {}
+        self._routes: dict[str, dict[str, dict[str, Any]]] = {}
         self.middleware_manager = MiddlewareManager()
         self.middleware_executor = MiddlewareExecutor(self.middleware_manager)
         self.logger = logger
@@ -179,7 +225,7 @@ class App:
         all_routes = []  # For multiple method test
 
         for path, methods in self._routes.items():
-            for method, route_data in methods.items():
+            for route_data in methods.values():
                 # For simple tests - last method wins
                 flattened[path] = route_data
                 # Keep all routes for values() iteration
@@ -267,8 +313,8 @@ class App:
 
     def use(
         self,
-        path_or_middleware: Union[str, Callable],
-        middleware: Optional[Callable] = None,
+        path_or_middleware: str | Callable,
+        middleware: Callable | None = None,
     ) -> None:
         """Register middleware - Express style app.use() API.
 
@@ -296,7 +342,7 @@ class App:
 
     # Properties for backward compatibility with tests
     @property
-    def global_middleware(self) -> List[Callable]:
+    def global_middleware(self) -> list[Callable]:
         """Get global middleware list.
 
         Returns:
@@ -305,7 +351,7 @@ class App:
         return self.middleware_manager.global_middleware
 
     @property
-    def path_middleware(self) -> Dict[str, List[Callable]]:
+    def path_middleware(self) -> dict[str, list[Callable]]:
         """Get path-based middleware dictionary.
 
         Returns:
@@ -315,7 +361,7 @@ class App:
 
     def _find_route(
         self, method: str, path: str
-    ) -> Tuple[Optional[Dict[str, Any]], Dict[str, str]]:
+    ) -> tuple[dict[str, Any] | None, dict[str, str]]:
         """Find a route handler and extract path parameters.
 
         Args:
@@ -329,7 +375,7 @@ class App:
             RouteNotFound: If no route matches the path
             MethodNotAllowed: If path exists but method not allowed
         """
-        for route_path, methods in self._routes.items():
+        for methods in self._routes.values():
             if method in methods:
                 route_info = methods[method]
                 match = route_info["pattern"].match(path)
@@ -337,7 +383,7 @@ class App:
                     return route_info, match.groupdict()
         return None, {}
 
-    def _path_exists_with_different_method(self, path: str) -> Tuple[bool, List[str]]:
+    def _path_exists_with_different_method(self, path: str) -> tuple[bool, list[str]]:
         """Check if path exists with a different HTTP method.
 
         Used to determine whether to return 405 Method Not Allowed
@@ -350,7 +396,7 @@ class App:
             Tuple of (path_exists, allowed_methods)
         """
         allowed_methods = []
-        for route_path, methods in self._routes.items():
+        for methods in self._routes.values():
             for method, route_info in methods.items():
                 match = route_info["pattern"].match(path)
                 if match:
@@ -360,9 +406,9 @@ class App:
     async def _call_handler(
         self,
         handler: Callable[..., Any],
-        path_params: Dict[str, str],
-        request: Optional[Request] = None,
-        route_info: Optional[Dict[str, Any]] = None,
+        path_params: dict[str, str],
+        request: Request | None = None,
+        route_info: dict[str, Any] | None = None,
     ) -> Any:
         """Call a route handler with appropriate parameters.
 
@@ -486,7 +532,7 @@ class App:
         )
 
     async def __call__(
-        self, scope: Dict[str, Any], receive: Callable, send: Callable
+        self, scope: dict[str, Any], receive: Callable, send: Callable
     ) -> None:
         """ASGI application entry point.
 
@@ -525,7 +571,7 @@ class App:
                         response.json(response_data)
                     return response
                 except HandlerError as e:
-                    self.logger.error(
+                    self.logger.exception(
                         f"Handler error in {route['method']} {route['path']}: {e!s}"
                     )
                     if not response.is_finished():
@@ -533,7 +579,7 @@ class App:
                         response.json(e.to_dict())
                     return response
                 except Exception as e:
-                    self.logger.error(
+                    self.logger.exception(
                         f"Unexpected error in {route['method']} {route['path']}: {e!s}"
                     )
                     if not response.is_finished():
@@ -556,7 +602,7 @@ class App:
 
         try:
             # Execute middleware chain
-            result = await self.middleware_executor.execute_with_error_handling(
+            await self.middleware_executor.execute_with_error_handling(
                 request, response, path, final_handler
             )
 
@@ -564,5 +610,5 @@ class App:
             await self._send_response(send, response)
 
         except Exception as e:
-            self.logger.error(f"Unhandled error: {e!s}")
+            self.logger.exception(f"Unhandled error: {e!s}")
             await self._send_error_response(send, 500, "Internal Server Error")

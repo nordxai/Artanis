@@ -4,8 +4,10 @@ Provides the MiddlewareManager class for registering and organizing
 global and path-based middleware with pattern matching capabilities.
 """
 
+from __future__ import annotations
+
 import re
-from typing import Callable, Dict, List, Pattern
+from typing import Callable, Pattern
 
 
 class MiddlewareManager:
@@ -33,8 +35,8 @@ class MiddlewareManager:
     """
 
     def __init__(self) -> None:
-        self.global_middleware: List[Callable] = []
-        self.path_middleware: Dict[str, List[Callable]] = {}
+        self.global_middleware: list[Callable] = []
+        self.path_middleware: dict[str, list[Callable]] = {}
 
     def add_global(self, middleware_func: Callable) -> None:
         """Add global middleware that runs on all routes.
@@ -61,7 +63,7 @@ class MiddlewareManager:
             self.path_middleware[path] = []
         self.path_middleware[path].append(middleware_func)
 
-    def find_matching_middleware(self, request_path: str) -> List[Callable]:
+    def find_matching_middleware(self, request_path: str) -> list[Callable]:
         """Find all path middleware that match the request path.
 
         Iterates through all registered path patterns and returns middleware
@@ -118,14 +120,11 @@ class MiddlewareManager:
         pattern = pattern.replace(r"\{", "(?P<").replace(r"\}", r">[^/]+)")
 
         # Handle nested paths - /api should match /api/users
-        if not pattern.endswith("$"):
-            pattern = f"^{pattern}(?:/.*)?$"
-        else:
-            pattern = f"^{pattern}"
+        pattern = f"^{pattern}(?:/.*)?$" if not pattern.endswith("$") else f"^{pattern}"
 
         return re.compile(pattern)
 
-    def get_all_middleware_for_path(self, request_path: str) -> List[Callable]:
+    def get_all_middleware_for_path(self, request_path: str) -> list[Callable]:
         """Get combined global and path middleware for a specific path.
 
         Returns middleware in execution order: global middleware first,
@@ -149,7 +148,7 @@ class MiddlewareManager:
         self.global_middleware.clear()
         self.path_middleware.clear()
 
-    def middleware_count(self) -> Dict[str, int]:
+    def middleware_count(self) -> dict[str, int]:
         """Get count of middleware for debugging.
 
         Provides statistics about registered middleware for debugging

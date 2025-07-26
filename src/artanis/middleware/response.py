@@ -4,8 +4,10 @@ Provides the Response class that middleware and route handlers can use
 to build HTTP responses with headers, status codes, and body content.
 """
 
+from __future__ import annotations
+
 import json
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 
 class Response:
@@ -32,7 +34,7 @@ class Response:
 
     def __init__(self) -> None:
         self.status: int = 200
-        self.headers: Dict[str, str] = {}
+        self.headers: dict[str, str] = {}
         self.body: Any = None
         self._finished: bool = False
 
@@ -57,7 +59,7 @@ class Response:
         """
         self.headers[name] = value
 
-    def get_header(self, name: str) -> Optional[str]:
+    def get_header(self, name: str) -> str | None:
         """Get a response header.
 
         Args:
@@ -105,7 +107,7 @@ class Response:
         if self.body is None:
             return b""
 
-        if isinstance(self.body, dict) or isinstance(self.body, list):
+        if isinstance(self.body, (dict, list)):
             return json.dumps(self.body).encode()
         if isinstance(self.body, str):
             return self.body.encode()
@@ -113,7 +115,7 @@ class Response:
             return self.body
         return str(self.body).encode()
 
-    def get_headers_list(self) -> List[Tuple[bytes, bytes]]:
+    def get_headers_list(self) -> list[tuple[bytes, bytes]]:
         """Get headers in ASGI format [(name_bytes, value_bytes), ...].
 
         Converts header dictionary to ASGI-compatible list format
