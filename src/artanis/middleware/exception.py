@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
-from src.artanis.exceptions import ArtanisException
-from src.artanis.logging import logger
+from artanis.exceptions import ArtanisException
+from artanis.logging import logger
 
 if TYPE_CHECKING:
     from .response import Response
@@ -38,14 +38,16 @@ class ExceptionHandlerMiddleware:
         self,
         debug: bool = False,
         include_traceback: bool = False,
-        custom_handlers: dict[type, Callable] | None = None,
+        custom_handlers: dict[type, Callable[..., Awaitable[Response]]] | None = None,
     ) -> None:
         self.debug = debug
         self.include_traceback = include_traceback
         self.custom_handlers = custom_handlers or {}
         self.logger = logger
 
-    def add_handler(self, exception_type: type, handler: Callable) -> None:
+    def add_handler(
+        self, exception_type: type, handler: Callable[..., Awaitable[Response]]
+    ) -> None:
         """Add a custom handler for a specific exception type.
 
         Args:
@@ -67,7 +69,7 @@ class ExceptionHandlerMiddleware:
             Dictionary containing structured error information
         """
         if isinstance(exception, ArtanisException):
-            error_data = exception.to_dict()
+            error_data: dict[str, Any] = exception.to_dict()
 
             if self.debug and self.include_traceback:
                 import traceback
@@ -212,8 +214,8 @@ class ValidationMiddleware:
     def __init__(
         self,
         validate_json: bool = True,
-        required_fields: list | None = None,
-        custom_validators: dict[str, Callable] | None = None,
+        required_fields: list[str] | None = None,
+        custom_validators: dict[str, Callable[[Any], bool]] | None = None,
     ) -> None:
         self.validate_json = validate_json
         self.required_fields = required_fields or []
@@ -238,7 +240,7 @@ class ValidationMiddleware:
         Raises:
             ValidationError: If validation fails
         """
-        from src.artanis.exceptions import ValidationError
+        from artanis.exceptions import ValidationError
 
         # Validate JSON requests
         if (

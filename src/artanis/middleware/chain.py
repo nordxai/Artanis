@@ -29,7 +29,9 @@ class MiddlewareChain:
     """
 
     def __init__(
-        self, middleware_list: list[Callable], final_handler: Callable
+        self,
+        middleware_list: list[Callable[..., Any]],
+        final_handler: Callable[..., Any],
     ) -> None:
         self.middleware_list = middleware_list
         self.final_handler = final_handler
@@ -106,7 +108,7 @@ class MiddlewareExecutor:
         request: Any,
         response: Response,
         request_path: str,
-        final_handler: Callable,
+        final_handler: Callable[..., Any],
     ) -> Any:
         """Execute complete middleware chain for a request.
 
@@ -151,7 +153,7 @@ class MiddlewareExecutor:
         request: Any,
         response: Response,
         request_path: str,
-        final_handler: Callable,
+        final_handler: Callable[..., Any],
     ) -> Any:
         """Execute middleware chain with built-in error handling.
 

@@ -194,8 +194,8 @@ class TestRequestLoggingMiddleware:
                 await middleware(mock_request, mock_response, mock_next)
 
             # Verify error logging
-            mock_logger.error.assert_called_once()
-            error_call = mock_logger.error.call_args
+            mock_logger.exception.assert_called_once()
+            error_call = mock_logger.exception.call_args
             assert error_call[0][0] == "Request failed"
             assert "error" in error_call[1]["extra"]
             assert "response_time" in error_call[1]["extra"]
