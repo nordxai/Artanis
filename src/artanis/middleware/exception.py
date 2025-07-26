@@ -4,11 +4,15 @@ Provides centralized exception handling with consistent error responses,
 proper logging, and structured error formatting for API responses.
 """
 
-from typing import Any, Awaitable, Callable, Dict, Optional
+from __future__ import annotations
 
-from ..exceptions import ArtanisException
-from ..logging import logger
-from .response import Response
+from typing import TYPE_CHECKING, Any, Awaitable, Callable
+
+from src.artanis.exceptions import ArtanisException
+from src.artanis.logging import logger
+
+if TYPE_CHECKING:
+    from .response import Response
 
 
 class ExceptionHandlerMiddleware:
@@ -34,7 +38,7 @@ class ExceptionHandlerMiddleware:
         self,
         debug: bool = False,
         include_traceback: bool = False,
-        custom_handlers: Optional[Dict[type, Callable]] = None,
+        custom_handlers: dict[type, Callable] | None = None,
     ) -> None:
         self.debug = debug
         self.include_traceback = include_traceback
@@ -52,7 +56,7 @@ class ExceptionHandlerMiddleware:
 
     def _format_error_response(
         self, exception: Exception, request: Any
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Format an exception into a structured error response.
 
         Args:
@@ -171,7 +175,7 @@ class ExceptionHandlerMiddleware:
                     )
                 except Exception as handler_error:
                     # If custom handler fails, fall back to default handling
-                    self.logger.error(
+                    self.logger.exception(
                         f"Custom exception handler failed: {handler_error!s}"
                     )
                     e = handler_error
@@ -208,8 +212,8 @@ class ValidationMiddleware:
     def __init__(
         self,
         validate_json: bool = True,
-        required_fields: Optional[list] = None,
-        custom_validators: Optional[Dict[str, Callable]] = None,
+        required_fields: list | None = None,
+        custom_validators: dict[str, Callable] | None = None,
     ) -> None:
         self.validate_json = validate_json
         self.required_fields = required_fields or []
@@ -234,7 +238,7 @@ class ValidationMiddleware:
         Raises:
             ValidationError: If validation fails
         """
-        from ..exceptions import ValidationError
+        from src.artanis.exceptions import ValidationError
 
         # Validate JSON requests
         if (

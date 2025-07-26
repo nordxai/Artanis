@@ -5,11 +5,13 @@ request tracking with unique IDs, and middleware for automatic request/response
 logging.
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import sys
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class ArtanisFormatter(logging.Formatter):
@@ -89,7 +91,7 @@ class ArtanisLogger:
         _configured: Flag to prevent duplicate configuration
     """
 
-    _loggers: Dict[str, logging.Logger] = {}
+    _loggers: dict[str, logging.Logger] = {}
     _configured: bool = False
 
     @classmethod
@@ -97,7 +99,7 @@ class ArtanisLogger:
         cls,
         level: str = "INFO",
         format_type: str = "text",
-        output: Optional[str] = None,
+        output: str | None = None,
     ) -> None:
         """Configure logging for Artanis framework.
 
@@ -197,7 +199,7 @@ class RequestLoggingMiddleware:
         ```
     """
 
-    def __init__(self, logger: Optional[logging.Logger] = None) -> None:
+    def __init__(self, logger: logging.Logger | None = None) -> None:
         self.logger = logger or request_logger
 
     async def __call__(self, request: Any, response: Any, next_middleware: Any) -> None:
@@ -256,7 +258,7 @@ class RequestLoggingMiddleware:
         except Exception as e:
             # Log error response
             response_time = round((time.time() - start_time) * 1000, 2)
-            self.logger.error(
+            self.logger.exception(
                 "Request failed",
                 extra={
                     "request_id": request_id,

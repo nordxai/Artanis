@@ -48,9 +48,48 @@ pip install -e ".[all]"      # All optional dependencies
 
 ### Available Dependency Groups
 
-- **`dev`**: Development tools (black, isort, flake8, mypy, pre-commit, pytest)
+- **`dev`**: Development tools (ruff, mypy, pre-commit, pytest)
 - **`test`**: Testing and coverage tools (pytest, pytest-asyncio, pytest-cov, coverage)
 - **`all`**: All optional dependencies combined
+
+### Code Quality Tools
+
+Artanis uses **Ruff** as its primary code quality tool, providing ultra-fast linting and formatting:
+
+```bash
+# Run ruff linting
+ruff check .
+
+# Run ruff linting with auto-fix
+ruff check --fix .
+
+# Run ruff formatting
+ruff format .
+
+# Run type checking with mypy
+mypy src/artanis --strict --ignore-missing-imports
+```
+
+#### Pre-commit Hooks
+
+Install pre-commit hooks for automatic code quality checks:
+
+```bash
+# Install pre-commit (included in dev dependencies)
+pip install -e ".[dev]"
+
+# Install pre-commit hooks
+pre-commit install
+
+# Run hooks on all files
+pre-commit run --all-files
+```
+
+The pre-commit configuration includes:
+- **Ruff linting** with auto-fix
+- **Ruff formatting** for consistent code style
+- **MyPy type checking** for type safety
+- **Standard hooks** for trailing whitespace, file endings, YAML/TOML validation
 
 ## 📦 Package Metadata
 
@@ -86,9 +125,10 @@ The package includes extensive PyPI classifiers for optimal discoverability:
 The package includes pre-configured settings for professional development tools:
 
 - **Testing**: pytest with asyncio support, coverage reporting
-- **Code Quality**: black formatting, isort import sorting, flake8 linting
+- **Code Quality**: ruff for ultra-fast linting and formatting
 - **Type Checking**: mypy with strict settings and test overrides
 - **Coverage**: Source-based coverage with intelligent exclusions
+- **Pre-commit**: Automated quality checks on every commit
 
 ## 🚀 Quick Start
 
@@ -282,9 +322,9 @@ Middleware functions have access to three parameters:
 async def middleware(request, response, next):
     # Pre-processing code (before route handler)
     print(f"Request to {request.scope['path']}")
-    
+
     await next()  # Continue to next middleware or route handler
-    
+
     # Post-processing code (after route handler)
     print("Response sent")
 ```
@@ -309,10 +349,10 @@ async def cors_middleware(request, response, next):
 async def logging_middleware(request, response, next):
     import time
     start_time = time.time()
-    
+
     print(f"→ {request.scope['method']} {request.scope['path']}")
     await next()
-    
+
     duration = time.time() - start_time
     response.headers["X-Response-Time"] = f"{duration:.3f}s"
     print(f"← {response.status} ({duration:.3f}s)")
@@ -340,7 +380,7 @@ async def auth_middleware(request, response, next):
         response.status = 401
         response.body = {"error": "Authentication required"}
         return  # Don't call next() to stop the chain
-    
+
     # Validate token here...
     await next()
 
@@ -372,12 +412,12 @@ Middleware can access path parameters just like route handlers:
 ```python
 async def user_validation_middleware(request, response, next):
     user_id = request.path_params.get('user_id')
-    
+
     if not user_id or not user_id.isdigit():
         response.status = 400
         response.body = {"error": "Invalid user ID"}
         return
-    
+
     # Add validated user_id to request for handler use
     request.validated_user_id = int(user_id)
     await next()
@@ -447,11 +487,11 @@ Middleware can modify the response using the response object:
 ```python
 async def response_modifier(request, response, next):
     await next()  # Let handler run first
-    
+
     # Modify response after handler
     response.headers["X-Powered-By"] = "Artanis"
     response.headers["Cache-Control"] = "no-cache"
-    
+
     # You can also modify status and body
     if isinstance(response.body, dict):
         response.body["timestamp"] = time.time()
@@ -474,12 +514,12 @@ Middleware can send a response early by not calling `next()`:
 ```python
 async def auth_middleware(request, response, next):
     token = request.headers.get("Authorization")
-    
+
     if not is_valid_token(token):
         response.status = 401
         response.body = {"error": "Invalid token"}
         return  # Don't call next() - stops execution chain
-    
+
     await next()  # Continue to next middleware/handler
 ```
 
@@ -509,12 +549,12 @@ async def cors_middleware(request, response, next):
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
     response.headers["Access-Control-Allow-Credentials"] = "true"
-    
+
     if request.scope["method"] == "OPTIONS":
         response.status = 200
         response.body = ""
         return
-    
+
     await next()
 
 app.use(cors_middleware)
@@ -526,14 +566,14 @@ import jwt
 
 async def jwt_auth_middleware(request, response, next):
     auth_header = request.headers.get("Authorization", "")
-    
+
     if not auth_header.startswith("Bearer "):
         response.status = 401
         response.body = {"error": "Missing or invalid authorization header"}
         return
-    
+
     token = auth_header[7:]  # Remove "Bearer "
-    
+
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
         request.user = payload  # Add user info to request
@@ -559,11 +599,11 @@ async def logging_middleware(request, response, next):
     start_time = time.time()
     method = request.scope["method"]
     path = request.scope["path"]
-    
+
     logger.info(f"→ {method} {path}")
-    
+
     await next()
-    
+
     duration = time.time() - start_time
     logger.info(f"← {method} {path} {response.status} ({duration:.3f}s)")
 
@@ -583,19 +623,19 @@ WINDOW = 60  # seconds
 async def rate_limit_middleware(request, response, next):
     client_ip = request.scope.get("client", ["unknown", None])[0]
     now = time.time()
-    
+
     # Clean old requests
     request_counts[client_ip] = [
         req_time for req_time in request_counts[client_ip]
         if now - req_time < WINDOW
     ]
-    
+
     # Check rate limit
     if len(request_counts[client_ip]) >= RATE_LIMIT:
         response.status = 429
         response.body = {"error": "Rate limit exceeded"}
         return
-    
+
     # Add current request
     request_counts[client_ip].append(now)
     await next()
@@ -667,19 +707,19 @@ app = App()
 
 async def login_handler(request):
     auth_logger.info("Login attempt started")
-    
+
     try:
         data = await request.json()
         username = data.get('username')
-        
+
         # Simulate authentication
         if not username:
             auth_logger.warning("Login failed: missing username")
             return {"error": "Username required"}
-            
+
         auth_logger.info(f"Login successful for user: {username}")
         return {"message": f"Welcome {username}"}
-        
+
     except Exception as e:
         auth_logger.error(f"Login error: {str(e)}")
         return {"error": "Login failed"}
@@ -814,7 +854,7 @@ Artanis provides comprehensive type hints throughout the framework, enabling exc
 The framework includes complete type annotations for:
 
 - **Route handlers**: Function signatures with proper parameter and return types
-- **Request/Response objects**: Full typing for all methods and attributes  
+- **Request/Response objects**: Full typing for all methods and attributes
 - **Middleware functions**: Type annotations for middleware signatures
 - **App class**: Complete typing for all methods and properties
 - **Logging system**: Type hints for loggers, formatters, and middleware
@@ -863,16 +903,16 @@ async def create_user(request: Request) -> Dict[str, str]:
     """Create a new user with typed request and response."""
     user_data: Dict[str, Any] = await request.json()
     username: str = user_data.get("username", "")
-    
+
     if not username:
         return {"error": "Username required"}
-    
+
     return {"message": f"Created user {username}"}
 
 async def update_user(user_id: str, request: Request) -> Dict[str, Any]:
     """Update user with mixed parameters."""
     user_data: Dict[str, Any] = await request.json()
-    
+
     return {
         "user_id": user_id,
         "updated_fields": list(user_data.keys()),
@@ -881,7 +921,7 @@ async def update_user(user_id: str, request: Request) -> Dict[str, Any]:
 
 # Register typed routes
 app.get("/users/{user_id}", get_user)
-app.post("/users", create_user)  
+app.post("/users", create_user)
 app.put("/users/{user_id}", update_user)
 ```
 
@@ -896,39 +936,39 @@ from artanis.middleware import Response
 
 # Type-annotated middleware
 async def auth_middleware(
-    request: Request, 
-    response: Response, 
+    request: Request,
+    response: Response,
     next_middleware: Callable[[], Awaitable[Any]]
 ) -> None:
     """Authentication middleware with full type annotations."""
-    
+
     auth_header: Optional[str] = request.headers.get("Authorization")
-    
+
     if not auth_header or not auth_header.startswith("Bearer "):
         response.set_status(401)
         response.json({"error": "Authentication required"})
         return
-    
+
     # Add user info to request (typed)
     request.user_id = extract_user_id(auth_header)
     await next_middleware()
 
 async def logging_middleware(
     request: Request,
-    response: Response, 
+    response: Response,
     next_middleware: Callable[[], Awaitable[Any]]
 ) -> None:
     """Request logging middleware with type safety."""
     import time
-    
+
     start_time: float = time.time()
     method: str = request.scope.get("method", "UNKNOWN")
     path: str = request.scope.get("path", "/")
-    
+
     print(f"→ {method} {path}")
-    
+
     await next_middleware()
-    
+
     duration: float = time.time() - start_time
     status: int = response.status
     print(f"← {method} {path} {status} ({duration:.3f}s)")
@@ -944,20 +984,20 @@ The Request object provides typed methods for accessing request data:
 ```python
 async def typed_request_handler(request: Request) -> Dict[str, Any]:
     """Demonstrate typed request object usage."""
-    
+
     # Typed body access
     raw_body: bytes = await request.body()
-    
+
     # Typed JSON parsing
     json_data: Any = await request.json()  # Returns Any for flexibility
-    
+
     # Type-safe header access
     content_type: Optional[str] = request.headers.get("Content-Type")
     user_agent: str = request.headers.get("User-Agent", "Unknown")
-    
+
     # Typed path parameters
     path_params: Dict[str, str] = request.path_params
-    
+
     return {
         "body_size": len(raw_body),
         "has_json": json_data is not None,
@@ -981,21 +1021,21 @@ async def typed_response_middleware(
     next_middleware: Callable[[], Awaitable[Any]]
 ) -> None:
     """Demonstrate typed response object usage."""
-    
+
     # Execute handler first
     await next_middleware()
-    
+
     # Typed response modifications
     response.set_status(200)  # status: int
     response.set_header("X-Custom", "value")  # name: str, value: str
-    
+
     # Type-safe header retrieval
     custom_header: Optional[str] = response.get_header("X-Custom")
-    
+
     # Typed response body
     if isinstance(response.body, dict):
         response.body["server"] = "Artanis"
-    
+
     # Typed header list for ASGI
     headers: List[Tuple[bytes, bytes]] = response.get_headers_list()
     response_bytes: bytes = response.to_bytes()
@@ -1029,11 +1069,11 @@ class User:
     username: str
     email: Optional[str] = None
     active: bool = True
-    
+
     def to_dict(self) -> UserData:
         return {
             "user_id": self.id,
-            "username": self.username, 
+            "username": self.username,
             "email": self.email,
             "active": self.active
         }
@@ -1047,13 +1087,13 @@ async def get_user_typed(user_id: str) -> UserData:
 async def create_user_typed(request: Request) -> UserData:
     """Create user with structured request/response types."""
     data: CreateUserRequest = await request.json()
-    
+
     new_user = User(
         id=generate_id(),
         username=data["username"],
         email=data["email"]
     )
-    
+
     return new_user.to_dict()
 
 app.get("/users/{user_id}", get_user_typed)
@@ -1071,12 +1111,12 @@ T = TypeVar('T')
 
 class APIResponse(Generic[T]):
     """Generic API response wrapper."""
-    
+
     def __init__(self, data: T, message: str = "Success"):
         self.data = data
         self.message = message
         self.success = True
-    
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "data": self.data,
@@ -1091,7 +1131,7 @@ async def get_users() -> Dict[str, Any]:
         {"user_id": "1", "username": "alice", "email": "alice@example.com", "active": True},
         {"user_id": "2", "username": "bob", "email": None, "active": False}
     ]
-    
+
     response: APIResponse[List[UserData]] = APIResponse(users, "Users retrieved")
     return response.to_dict()
 
@@ -1204,7 +1244,7 @@ app = App()
 async def create_user(request):
     try:
         data = await request.json()
-        
+
         # Validate required fields
         if not data.get('email'):
             raise ValidationError(
@@ -1212,13 +1252,13 @@ async def create_user(request):
                 field="email",
                 validation_errors={"email": "Missing required field"}
             )
-        
+
         # Check authentication
         if not request.headers.get('authorization'):
             raise AuthenticationError("Bearer token required", auth_type="bearer")
-        
+
         return {"message": "User created", "data": data}
-        
+
     except ValidationError:
         # ValidationError is automatically handled by the framework
         raise
@@ -1323,10 +1363,10 @@ class InsufficientCreditsError(ArtanisException):
 async def purchase_handler(request):
     user_credits = 10
     item_cost = 25
-    
+
     if user_credits < item_cost:
         raise InsufficientCreditsError(item_cost, user_credits)
-    
+
     return {"message": "Purchase successful"}
 ```
 
@@ -1467,7 +1507,7 @@ async def get_app_version():
         "version": __version__,
         "components": {
             "major": artanis.VERSION[0],
-            "minor": artanis.VERSION[1], 
+            "minor": artanis.VERSION[1],
             "patch": artanis.VERSION[2]
         }
     }

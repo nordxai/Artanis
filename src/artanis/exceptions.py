@@ -5,7 +5,9 @@ specific error types for common web application scenarios with proper
 status codes and error messages.
 """
 
-from typing import Any, Dict, Optional
+from __future__ import annotations
+
+from typing import Any
 
 
 class ArtanisException(Exception):
@@ -32,8 +34,8 @@ class ArtanisException(Exception):
         self,
         message: str,
         status_code: int = 500,
-        error_code: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
+        error_code: str | None = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(message)
         self.message = message
@@ -41,7 +43,7 @@ class ArtanisException(Exception):
         self.error_code = error_code or self.__class__.__name__
         self.details = details or {}
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert exception to dictionary for JSON responses.
 
         Returns:
@@ -70,7 +72,7 @@ class RouteNotFound(ArtanisException):
         method: The HTTP method used (optional)
     """
 
-    def __init__(self, path: str, method: Optional[str] = None) -> None:
+    def __init__(self, path: str, method: str | None = None) -> None:
         details = {"path": path}
         if method:
             details["method"] = method
@@ -102,7 +104,7 @@ class MethodNotAllowed(ArtanisException):
     """
 
     def __init__(
-        self, path: str, method: str, allowed_methods: Optional[list] = None
+        self, path: str, method: str, allowed_methods: list | None = None
     ) -> None:
         details = {"path": path, "method": method}
 
@@ -137,9 +139,9 @@ class ValidationError(ArtanisException):
     def __init__(
         self,
         message: str,
-        field: Optional[str] = None,
-        value: Optional[Any] = None,
-        validation_errors: Optional[Dict[str, Any]] = None,
+        field: str | None = None,
+        value: Any | None = None,
+        validation_errors: dict[str, Any] | None = None,
     ) -> None:
         details = {}
 
@@ -174,8 +176,8 @@ class ConfigurationError(ArtanisException):
     def __init__(
         self,
         message: str,
-        config_key: Optional[str] = None,
-        config_value: Optional[Any] = None,
+        config_key: str | None = None,
+        config_value: Any | None = None,
     ) -> None:
         details = {}
 
@@ -208,8 +210,8 @@ class MiddlewareError(ArtanisException):
     def __init__(
         self,
         message: str,
-        middleware_name: Optional[str] = None,
-        original_error: Optional[Exception] = None,
+        middleware_name: str | None = None,
+        original_error: Exception | None = None,
     ) -> None:
         details = {}
 
@@ -243,9 +245,9 @@ class HandlerError(ArtanisException):
     def __init__(
         self,
         message: str,
-        route_path: Optional[str] = None,
-        method: Optional[str] = None,
-        original_error: Optional[Exception] = None,
+        route_path: str | None = None,
+        method: str | None = None,
+        original_error: Exception | None = None,
     ) -> None:
         details = {}
 
@@ -277,7 +279,7 @@ class AuthenticationError(ArtanisException):
     """
 
     def __init__(
-        self, message: str = "Authentication required", auth_type: Optional[str] = None
+        self, message: str = "Authentication required", auth_type: str | None = None
     ) -> None:
         details = {}
 
@@ -307,8 +309,8 @@ class AuthorizationError(ArtanisException):
     def __init__(
         self,
         message: str = "Access denied",
-        resource: Optional[str] = None,
-        required_permission: Optional[str] = None,
+        resource: str | None = None,
+        required_permission: str | None = None,
     ) -> None:
         details = {}
 
@@ -341,9 +343,9 @@ class RateLimitError(ArtanisException):
     def __init__(
         self,
         message: str = "Rate limit exceeded",
-        limit: Optional[int] = None,
-        window: Optional[int] = None,
-        retry_after: Optional[int] = None,
+        limit: int | None = None,
+        window: int | None = None,
+        retry_after: int | None = None,
     ) -> None:
         details = {}
 

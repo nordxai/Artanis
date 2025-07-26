@@ -17,7 +17,7 @@ maintainers = [
 keywords = [
     "asgi",
     "web",
-    "framework", 
+    "framework",
     "async",
     "routes",
     "middleware",

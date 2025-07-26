@@ -4,9 +4,12 @@ Provides classes for executing middleware in sequence with Express.js-style
 next() function calls and comprehensive error handling.
 """
 
-from typing import Any, Awaitable, Callable, List
+from __future__ import annotations
 
-from .response import Response
+from typing import TYPE_CHECKING, Any, Awaitable, Callable
+
+if TYPE_CHECKING:
+    from .response import Response
 
 
 class MiddlewareChain:
@@ -26,7 +29,7 @@ class MiddlewareChain:
     """
 
     def __init__(
-        self, middleware_list: List[Callable], final_handler: Callable
+        self, middleware_list: list[Callable], final_handler: Callable
     ) -> None:
         self.middleware_list = middleware_list
         self.final_handler = final_handler
