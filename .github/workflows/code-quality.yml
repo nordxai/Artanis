@@ -50,7 +50,7 @@ jobs:
     - name: Run MyPy type checking
       run: |
         source venv/bin/activate
-        mypy src/artanis --strict --ignore-missing-imports
+        mypy --package artanis --strict --ignore-missing-imports
 
     - name: Check if code is properly formatted
       run: |
