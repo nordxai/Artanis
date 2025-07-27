@@ -24,9 +24,11 @@ class TestASGIFramework:
 
         app.get("/hello", hello_handler)
 
-        assert "/hello" in app.routes
-        assert app.routes["/hello"]["method"] == "GET"
-        assert app.routes["/hello"]["handler"] == hello_handler
+        routes = app.routes
+        hello_route = next((r for r in routes if r["path"] == "/hello"), None)
+        assert hello_route is not None
+        assert hello_route["method"] == "GET"
+        assert hello_route["handler"] == hello_handler
 
     def test_register_post_route(self):
         """Test registering a POST route using app.post(path, handler)"""
@@ -39,9 +41,11 @@ class TestASGIFramework:
 
         app.post("/users", create_user_handler)
 
-        assert "/users" in app.routes
-        assert app.routes["/users"]["method"] == "POST"
-        assert app.routes["/users"]["handler"] == create_user_handler
+        routes = app.routes
+        users_route = next((r for r in routes if r["path"] == "/users"), None)
+        assert users_route is not None
+        assert users_route["method"] == "POST"
+        assert users_route["handler"] == create_user_handler
 
     def test_multiple_routes_same_path_different_methods(self):
         """Test registering multiple routes with same path but different methods"""
@@ -59,7 +63,7 @@ class TestASGIFramework:
         app.post("/users", create_user_handler)
 
         # Should have separate route entries for GET and POST
-        routes_for_users = [r for r in app.routes.values() if r["path"] == "/users"]
+        routes_for_users = [r for r in app.routes if r["path"] == "/users"]
         assert len(routes_for_users) == 2
         methods = [r["method"] for r in routes_for_users]
         assert "GET" in methods
@@ -179,7 +183,7 @@ class TestASGIFramework:
 
         app.get("/users/{user_id}", get_user_handler)
 
-        assert "/users/{user_id}" in [route["path"] for route in app.routes.values()]
+        assert "/users/{user_id}" in [route["path"] for route in app.routes]
 
     @pytest.mark.asyncio
     async def test_path_parameter_extraction(self):
@@ -219,7 +223,7 @@ class TestASGIFramework:
 
         app.put("/users/{user_id}", update_user_handler)
 
-        assert any(route["method"] == "PUT" for route in app.routes.values())
+        assert any(route["method"] == "PUT" for route in app.routes)
 
     def test_delete_route_method(self):
         """Test DELETE route method"""
@@ -232,7 +236,7 @@ class TestASGIFramework:
 
         app.delete("/users/{user_id}", delete_user_handler)
 
-        assert any(route["method"] == "DELETE" for route in app.routes.values())
+        assert any(route["method"] == "DELETE" for route in app.routes)
 
     @pytest.mark.asyncio
     async def test_request_object_passed_to_handler(self):
@@ -283,7 +287,7 @@ class TestASGIFramework:
 
         app.get("/users/{user_id}/posts/{post_id}", get_user_post_handler)
 
-        route_paths = [route["path"] for route in app.routes.values()]
+        route_paths = [route["path"] for route in app.routes]
         assert "/users/{user_id}/posts/{post_id}" in route_paths
 
     @pytest.mark.asyncio
@@ -330,5 +334,61 @@ class TestASGIFramework:
 
         app.put("/users/{user_id}", update_user_handler)
 
-        route_paths = [route["path"] for route in app.routes.values()]
+        route_paths = [route["path"] for route in app.routes]
         assert "/users/{user_id}" in route_paths
+
+    def test_all_method_registration(self):
+        """Test app.all() method registration."""
+        from artanis import App
+
+        app = App()
+
+        async def universal_handler():
+            return {"message": "handles all methods"}
+
+        app.all("/universal", universal_handler)
+
+        # Should register all HTTP methods
+        routes = app.routes
+        universal_routes = [r for r in routes if r["path"] == "/universal"]
+        assert len(universal_routes) == 6  # GET, POST, PUT, DELETE, PATCH, OPTIONS
+
+        methods = [r["method"] for r in universal_routes]
+        expected_methods = ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+
+        for method in expected_methods:
+            assert method in methods
+
+    @pytest.mark.asyncio
+    async def test_all_method_execution(self):
+        """Test that app.all() routes work for all HTTP methods."""
+        from artanis import App
+
+        app = App()
+
+        async def universal_handler():
+            return {"message": "universal response"}
+
+        app.all("/api", universal_handler)
+
+        # Test each HTTP method
+        methods = ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+
+        for method in methods:
+            scope = {"type": "http", "method": method, "path": "/api", "headers": []}
+            receive = AsyncMock()
+            send = AsyncMock()
+
+            await app(scope, receive, send)
+
+            # Should return 200 for all methods
+            status_calls = [
+                call
+                for call in send.call_args_list
+                if call[0][0].get("type") == "http.response.start"
+            ]
+            assert len(status_calls) > 0
+            assert status_calls[0][0][0]["status"] == 200
+
+            # Reset mocks for next iteration
+            send.reset_mock()

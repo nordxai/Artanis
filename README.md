@@ -9,16 +9,20 @@ A lightweight, minimalist ASGI web framework for Python built with simplicity an
 ## ✨ Features
 
 - **Named Routes**: Clean `app.get(path, handler)` and `app.post(path, handler)` syntax
+- **Advanced Routing**: Modular routing system with `Router` class and subrouting support
 - **Path Parameters**: Support for dynamic path segments like `/users/{user_id}`
-- **Multiple HTTP Methods**: Support for GET, POST, PUT, DELETE on the same path
+- **Multiple HTTP Methods**: Support for GET, POST, PUT, DELETE, PATCH, OPTIONS on the same path
+- **Subrouting**: Mount routers at specific paths for modular application organization
+- **Parameterized Mounts**: Mount subrouters at dynamic paths like `/users/{user_id}`
 - **ASGI Compliant**: Works with any ASGI server (Uvicorn, Hypercorn, etc.)
 - **Express-Style Middleware**: Powerful middleware system with `app.use()` API
 - **Path-Based Middleware**: Apply middleware to specific routes or paths
+- **Security Middleware**: Built-in CORS, CSP, HSTS, rate limiting, and security headers
 - **Exception Handling**: Comprehensive custom exception system with structured error responses
 - **Automatic JSON Responses**: Built-in JSON serialization for response data
 - **Request Body Parsing**: Easy access to JSON request bodies
 - **Proper HTTP Status Codes**: Automatic 404, 405, and 500 error handling
-- **Type Hints**: Full type annotation support
+- **Type Hints**: Full type annotation support with mypy compatibility
 - **Structured Logging**: Built-in logging system with configurable formatters and request tracking
 
 ## 📦 Installation
@@ -233,6 +237,17 @@ async def delete_item(item_id):
 app.delete("/api/items/{item_id}", delete_item)
 ```
 
+##### `app.all(path: str, handler: Callable)`
+
+Register a route handler for all HTTP methods (GET, POST, PUT, DELETE, PATCH, OPTIONS).
+
+```python
+async def universal_handler():
+    return {"message": "Handles all HTTP methods"}
+
+app.all("/api/universal", universal_handler)
+```
+
 ##### `app.use(middleware)` or `app.use(path, middleware)`
 
 Register middleware functions using Express-style API.
@@ -281,6 +296,174 @@ async def handler(request):
     data = await request.json()
     return {"received": data}
 ```
+
+## 🗂️ Advanced Routing
+
+Artanis provides a powerful routing system with support for modular route organization through subrouting and advanced path matching.
+
+### Router Class
+
+The `Router` class allows you to create modular, reusable route groups that can be mounted to your main application.
+
+```python
+from artanis import App, Router
+
+# Create a router for user-related routes
+user_router = Router()
+
+def get_users():
+    return {"users": ["alice", "bob"]}
+
+def create_user():
+    return {"message": "User created"}
+
+user_router.get("/", get_users)
+user_router.post("/", create_user)
+
+# Main application
+app = App()
+
+# Mount the user router at /users
+app.mount("/users", user_router)
+
+# Results in:
+# GET /users -> get_users()
+# POST /users -> create_user()
+```
+
+### Nested Subrouting
+
+Create complex route hierarchies with nested routers for better organization.
+
+```python
+from artanis import App, Router
+
+# API v1 router
+v1_router = Router()
+
+# User management subrouter
+users_router = Router()
+users_router.get("/", lambda: {"users": []})
+users_router.post("/", lambda: {"message": "User created"})
+
+# Posts subrouter
+posts_router = Router()
+posts_router.get("/", lambda: {"posts": []})
+posts_router.post("/", lambda: {"message": "Post created"})
+
+# Mount subrouters to v1
+v1_router.mount("/users", users_router)
+v1_router.mount("/posts", posts_router)
+
+# Mount v1 to main app
+app = App()
+app.mount("/api/v1", v1_router)
+
+# Results in:
+# GET /api/v1/users -> get users
+# POST /api/v1/users -> create user
+# GET /api/v1/posts -> get posts
+# POST /api/v1/posts -> create post
+```
+
+### Parameterized Subrouting
+
+Subrouters can be mounted at parameterized paths, allowing for dynamic route organization.
+
+```python
+from artanis import App, Router
+
+# User profile router
+profile_router = Router()
+
+def get_profile(user_id):
+    return {"user_id": user_id, "profile": "data"}
+
+def update_profile(user_id):
+    return {"user_id": user_id, "message": "Profile updated"}
+
+profile_router.get("/", get_profile)
+profile_router.put("/", update_profile)
+
+# Mount at parameterized path
+app = App()
+app.mount("/users/{user_id}", profile_router)
+
+# Results in:
+# GET /users/123 -> get_profile(user_id="123")
+# PUT /users/123 -> update_profile(user_id="123")
+```
+
+### Mixed Routing Styles
+
+You can mix traditional app routing with the new Router system for maximum flexibility.
+
+```python
+from artanis import App, Router
+
+app = App()
+
+# Traditional style - directly on app
+app.get("/health", lambda: {"status": "ok"})
+
+# Direct router access - same as traditional but more explicit
+app.router.register_route("GET", "/info", lambda: {"version": "1.0"})
+
+# Subrouter style
+api_router = Router()
+api_router.get("/data", lambda: {"data": "example"})
+app.mount("/api", api_router)
+
+# All styles work together:
+# GET /health -> traditional app.get()
+# GET /info -> direct router access
+# GET /api/data -> via subrouter
+```
+
+### Router with Prefix
+
+Create routers with predefined prefixes for easier organization.
+
+```python
+from artanis import Router
+
+# Create router with prefix
+api_router = Router("/api/v2")
+
+api_router.get("/users", get_users)  # Becomes /api/v2/users
+api_router.get("/posts", get_posts)  # Becomes /api/v2/posts
+
+app = App()
+# Mount without additional prefix since router already has one
+app.mount("/", api_router)
+```
+
+### All HTTP Methods
+
+Routers support all standard HTTP methods.
+
+```python
+router = Router()
+
+router.get("/resource", get_handler)
+router.post("/resource", create_handler)
+router.put("/resource", update_handler)
+router.patch("/resource", patch_handler)
+router.delete("/resource", delete_handler)
+router.options("/resource", options_handler)
+
+# Register handler for all HTTP methods
+router.all("/resource", universal_handler)
+```
+
+### Benefits of Router System
+
+- **Modularity**: Organize routes into logical groups
+- **Reusability**: Routers can be reused across applications
+- **Scalability**: Better organization for large applications
+- **Clean API**: Simple, consistent interface across the framework
+- **Testing**: Easier to test individual route groups
+- **Team Development**: Different teams can work on different routers
 
 ## 🔗 Path Parameters
 
@@ -1356,6 +1539,9 @@ async def create_user(request):
 # Both handlers can be registered for the same path
 app.get("/users", get_users)
 app.post("/users", create_user)
+
+# Or register for all HTTP methods at once
+app.all("/users", universal_handler)
 ```
 
 ## ⚠️ Exception Handling

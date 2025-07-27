@@ -8,8 +8,7 @@ from __future__ import annotations
 
 import inspect
 import json
-import re
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Pattern, Tuple, Union
+from typing import Any, Awaitable, Callable
 
 from ._version import (
     VERSION as VERSION,
@@ -75,6 +74,12 @@ from .middleware import (
 )
 from .middleware import (
     ValidationMiddleware as ValidationMiddleware,
+)
+from .routing import (
+    Route as Route,
+)
+from .routing import (
+    Router as Router,
 )
 
 
@@ -150,29 +155,6 @@ class Request:
             )
 
 
-class RoutesDict(Dict[str, Any]):
-    """Custom dictionary for routes with additional methods.
-
-    Extends the built-in dict to provide access to all routes
-    through the values() method while maintaining backwards compatibility.
-
-    Args:
-        all_routes: List of all route objects for values() method
-    """
-
-    def __init__(self, all_routes: list[dict[str, Any]]) -> None:
-        super().__init__()
-        self._all_routes = all_routes
-
-    def values(self) -> list[dict[str, Any]]:  # type: ignore[override]
-        """Return all routes for iteration.
-
-        Returns:
-            List of all route dictionaries
-        """
-        return self._all_routes
-
-
 class App:
     """Main Artanis application class.
 
@@ -201,7 +183,7 @@ class App:
     """
 
     def __init__(self, enable_request_logging: bool = True) -> None:
-        self._routes: dict[str, dict[str, dict[str, Any]]] = {}
+        self.router = Router()
         self.middleware_manager = MiddlewareManager()
         self.middleware_executor = MiddlewareExecutor(self.middleware_manager)
         self.logger = logger
@@ -211,29 +193,13 @@ class App:
             self.use(RequestLoggingMiddleware())
 
     @property
-    def routes(self) -> RoutesDict:
+    def routes(self) -> list[dict[str, Any]]:
         """Get all registered routes.
 
-        Returns a custom dictionary containing all routes with backwards
-        compatibility for existing tests.
-
         Returns:
-            RoutesDict containing all registered routes
+            List of all registered route dictionaries
         """
-        # Return flattened view for test compatibility
-        flattened = {}
-        all_routes = []  # For multiple method test
-
-        for path, methods in self._routes.items():
-            for route_data in methods.values():
-                # For simple tests - last method wins
-                flattened[path] = route_data
-                # Keep all routes for values() iteration
-                all_routes.append(route_data)
-        # Add a custom values() method that returns all routes
-        result = RoutesDict(all_routes)
-        result.update(flattened)
-        return result
+        return self.router.get_all_routes()
 
     def _register_route(
         self, method: str, path: str, handler: Callable[..., Any]
@@ -241,39 +207,14 @@ class App:
         """Register a route with the application.
 
         Internal method to register a route handler for a specific HTTP method
-        and path pattern. Compiles the path pattern for parameter extraction.
+        and path pattern.
 
         Args:
             method: HTTP method (GET, POST, PUT, DELETE, etc.)
             path: URL path pattern with optional parameters (e.g., '/users/{id}')
             handler: Route handler function or coroutine
         """
-        if path not in self._routes:
-            self._routes[path] = {}
-        self._routes[path][method] = {
-            "handler": handler,
-            "method": method,
-            "path": path,
-            "pattern": self._compile_path_pattern(path),
-        }
-        self.logger.debug(f"Registered {method} route: {path}")
-
-    def _compile_path_pattern(self, path: str) -> Pattern[str]:
-        """Compile a path pattern into a regular expression.
-
-        Converts path patterns with parameters (e.g., '/users/{id}') into
-        regular expressions that can extract parameter values.
-
-        Args:
-            path: Path pattern with optional parameters
-
-        Returns:
-            Compiled regular expression pattern
-        """
-        pattern = re.escape(path)
-        pattern = pattern.replace(r"\{", "(?P<").replace(r"\}", r">[^/]+)")
-        pattern = f"^{pattern}$"
-        return re.compile(pattern)
+        self.router.register_route(method, path, handler)
 
     def get(self, path: str, handler: Callable[..., Any]) -> None:
         """Register a GET route.
@@ -311,6 +252,28 @@ class App:
         """
         self._register_route("DELETE", path, handler)
 
+    def all(self, path: str, handler: Callable[..., Any]) -> None:
+        """Register a route that responds to all HTTP methods.
+
+        This registers the handler for all standard HTTP methods
+        (GET, POST, PUT, DELETE, PATCH, OPTIONS).
+
+        Args:
+            path: URL path pattern
+            handler: Route handler function
+
+        Example:
+            ```python
+            # Authentication middleware for all methods
+            def authenticate(request, user_id):
+                # Check authentication for any HTTP method
+                return {"user_id": user_id, "authenticated": True}
+
+            app.all("/admin/{user_id}", authenticate)
+            ```
+        """
+        self.router.all(path, handler)
+
     def use(
         self,
         path_or_middleware: str | Callable[..., Any],
@@ -340,6 +303,22 @@ class App:
         # app.use("/path", middleware_func) - Path-based middleware
         elif isinstance(path_or_middleware, str):
             self.middleware_manager.add_path(path_or_middleware, middleware)
+
+    def mount(self, path: str, router: Router) -> None:
+        """Mount a subrouter at the specified path.
+
+        Args:
+            path: Path prefix where the subrouter should be mounted
+            router: Router instance to mount
+
+        Example:
+            ```python
+            api_router = Router()
+            api_router.get('/users', get_users)
+            app.mount('/api', api_router)
+            ```
+        """
+        self.router.mount(path, router)
 
     # Properties for backward compatibility with tests
     @property
@@ -376,12 +355,9 @@ class App:
             RouteNotFound: If no route matches the path
             MethodNotAllowed: If path exists but method not allowed
         """
-        for methods in self._routes.values():
-            if method in methods:
-                route_info = methods[method]
-                match = route_info["pattern"].match(path)
-                if match:
-                    return route_info, match.groupdict()
+        route, params, source_router = self.router.find_route(method, path)
+        if route is not None:
+            return route.to_dict(), params
         return None, {}
 
     def _path_exists_with_different_method(self, path: str) -> tuple[bool, list[str]]:
@@ -396,12 +372,7 @@ class App:
         Returns:
             Tuple of (path_exists, allowed_methods)
         """
-        allowed_methods = []
-        for methods in self._routes.values():
-            for method, route_info in methods.items():
-                match = route_info["pattern"].match(path)
-                if match:
-                    allowed_methods.append(method)
+        allowed_methods = self.router.get_allowed_methods(path)
         return len(allowed_methods) > 0, allowed_methods
 
     async def _call_handler(
