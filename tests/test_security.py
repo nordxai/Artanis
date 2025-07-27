@@ -9,9 +9,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.artanis.exceptions import RateLimitError
-from src.artanis.middleware.response import Response
-from src.artanis.middleware.security import (
+from artanis.exceptions import RateLimitError
+from artanis.middleware.response import Response
+from artanis.middleware.security import (
     CORSMiddleware,
     CSPMiddleware,
     HSTSMiddleware,
