@@ -539,109 +539,278 @@ async def error_handler_middleware(request, response, next):
         response.body = {"error": "Internal server error"}
 ```
 
-### Real-World Middleware Examples
+## 🔐 Security Middleware
 
-#### CORS Middleware
+Artanis includes a comprehensive suite of security middleware components to protect your applications against common web vulnerabilities and attacks. These middleware are production-ready and follow security best practices.
+
+### Security Configuration
+
+Configure all security middleware with a centralized configuration:
+
 ```python
-async def cors_middleware(request, response, next):
-    origin = request.headers.get("Origin", "*")
-    response.headers["Access-Control-Allow-Origin"] = origin
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-    response.headers["Access-Control-Allow-Credentials"] = "true"
+from artanis.middleware.security import SecurityConfig
 
-    if request.scope["method"] == "OPTIONS":
-        response.status = 200
-        response.body = ""
-        return
+# Create security configuration
+security_config = SecurityConfig(
+    # CORS settings
+    cors_allow_origins=["https://yourdomain.com", "https://api.yourdomain.com"],
+    cors_allow_credentials=True,
 
-    await next()
+    # CSP settings
+    csp_directives={
+        "default-src": "'self'",
+        "script-src": "'self' 'unsafe-inline'",
+        "style-src": "'self' 'unsafe-inline'",
+        "img-src": "'self' data: https:",
+        "connect-src": "'self'",
+        "font-src": "'self'",
+        "object-src": "'none'",
+        "media-src": "'self'",
+        "frame-src": "'none'"
+    },
 
-app.use(cors_middleware)
+    # HSTS settings
+    hsts_max_age=31536000,  # 1 year
+    hsts_include_subdomains=True,
+    hsts_preload=True,
+
+    # Rate limiting
+    rate_limit_requests=100,
+    rate_limit_window=3600  # 1 hour
+)
 ```
 
-#### JWT Authentication Middleware
+### CORS Middleware
+
+Comprehensive Cross-Origin Resource Sharing (CORS) middleware with full preflight request support:
+
 ```python
-import jwt
+from artanis.middleware.security import CORSMiddleware
 
-async def jwt_auth_middleware(request, response, next):
-    auth_header = request.headers.get("Authorization", "")
+# Basic CORS (allow all origins)
+app.use(CORSMiddleware())
 
-    if not auth_header.startswith("Bearer "):
-        response.status = 401
-        response.body = {"error": "Missing or invalid authorization header"}
-        return
+# Production CORS with specific origins
+cors = CORSMiddleware(
+    allow_origins=["https://yourdomain.com", "https://app.yourdomain.com"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Content-Type", "Authorization", "X-API-Key"],
+    allow_credentials=True,
+    max_age=86400  # 24 hours preflight cache
+)
+app.use(cors)
 
-    token = auth_header[7:]  # Remove "Bearer "
-
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-        request.user = payload  # Add user info to request
-        await next()
-    except jwt.ExpiredSignatureError:
-        response.status = 401
-        response.body = {"error": "Token has expired"}
-    except jwt.InvalidTokenError:
-        response.status = 401
-        response.body = {"error": "Invalid token"}
-
-app.use("/api/protected", jwt_auth_middleware)
+# Apply CORS to specific paths only
+app.use("/api", cors)
 ```
 
-#### Request Logging Middleware
+### Content Security Policy (CSP) Middleware
+
+Protect against XSS and data injection attacks with Content Security Policy:
+
 ```python
-import logging
-import time
+from artanis.middleware.security import CSPMiddleware
 
-logger = logging.getLogger("artanis")
+# Default secure CSP
+app.use(CSPMiddleware())
 
-async def logging_middleware(request, response, next):
-    start_time = time.time()
-    method = request.scope["method"]
-    path = request.scope["path"]
+# Custom CSP directives
+csp = CSPMiddleware(
+    directives={
+        "default-src": "'self'",
+        "script-src": "'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+        "style-src": "'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "img-src": "'self' data: https:",
+        "connect-src": "'self' https://api.example.com",
+        "font-src": "'self' https://fonts.gstatic.com",
+        "object-src": "'none'",
+        "media-src": "'self'",
+        "frame-src": "'none'"
+    },
+    report_uri="/csp-report"  # Optional violation reporting
+)
+app.use(csp)
 
-    logger.info(f"→ {method} {path}")
-
-    await next()
-
-    duration = time.time() - start_time
-    logger.info(f"← {method} {path} {response.status} ({duration:.3f}s)")
-
-app.use(logging_middleware)
+# CSP in report-only mode for testing
+csp_report_only = CSPMiddleware(
+    directives={"default-src": "'self'"},
+    report_only=True,
+    report_uri="/csp-report"
+)
+app.use(csp_report_only)
 ```
 
-#### Rate Limiting Middleware
+### HTTP Strict Transport Security (HSTS) Middleware
+
+Enforce HTTPS connections and prevent protocol downgrade attacks:
+
 ```python
-import time
-from collections import defaultdict
+from artanis.middleware.security import HSTSMiddleware
 
-# Simple in-memory rate limiter (use Redis in production)
-request_counts = defaultdict(list)
-RATE_LIMIT = 100  # requests per minute
-WINDOW = 60  # seconds
+# Default HSTS (1 year, include subdomains)
+app.use(HSTSMiddleware())
 
-async def rate_limit_middleware(request, response, next):
-    client_ip = request.scope.get("client", ["unknown", None])[0]
-    now = time.time()
+# Custom HSTS configuration
+hsts = HSTSMiddleware(
+    max_age=31536000,      # 1 year in seconds
+    include_subdomains=True,
+    preload=True           # Enable HSTS preload list
+)
+app.use(hsts)
 
-    # Clean old requests
-    request_counts[client_ip] = [
-        req_time for req_time in request_counts[client_ip]
-        if now - req_time < WINDOW
-    ]
-
-    # Check rate limit
-    if len(request_counts[client_ip]) >= RATE_LIMIT:
-        response.status = 429
-        response.body = {"error": "Rate limit exceeded"}
-        return
-
-    # Add current request
-    request_counts[client_ip].append(now)
-    await next()
-
-app.use("/api", rate_limit_middleware)
+# Conservative HSTS for testing
+hsts_test = HSTSMiddleware(
+    max_age=3600,          # 1 hour for testing
+    include_subdomains=False,
+    preload=False
+)
+app.use(hsts_test)
 ```
+
+### Security Headers Middleware
+
+Add essential security headers to protect against common vulnerabilities:
+
+```python
+from artanis.middleware.security import SecurityHeadersMiddleware
+
+# Default security headers
+app.use(SecurityHeadersMiddleware())
+
+# Custom security headers
+security_headers = SecurityHeadersMiddleware(
+    x_frame_options="DENY",                           # Prevent clickjacking
+    x_content_type_options="nosniff",                 # Prevent MIME sniffing
+    x_xss_protection="1; mode=block",                 # XSS protection
+    referrer_policy="strict-origin-when-cross-origin", # Control referrer info
+    permissions_policy="geolocation=(), microphone=(), camera=()"  # Feature policy
+)
+app.use(security_headers)
+```
+
+### Rate Limiting Middleware
+
+Protect against abuse and ensure fair usage with sophisticated rate limiting:
+
+```python
+from artanis.middleware.security import RateLimitMiddleware
+
+# Basic rate limiting (100 requests per hour per IP)
+app.use(RateLimitMiddleware())
+
+# Custom rate limiting
+rate_limiter = RateLimitMiddleware(
+    requests_per_window=50,    # 50 requests
+    window_seconds=300,        # per 5 minutes
+    skip_successful_requests=False  # Count all requests
+)
+app.use(rate_limiter)
+
+# API-specific rate limiting
+api_rate_limiter = RateLimitMiddleware(
+    requests_per_window=1000,   # Higher limit for API
+    window_seconds=3600,        # per hour
+    key_function=lambda req: f"api:{req.headers.get('X-API-Key', 'anonymous')}"
+)
+app.use("/api", api_rate_limiter)
+
+# Strict rate limiting for authentication endpoints
+auth_rate_limiter = RateLimitMiddleware(
+    requests_per_window=5,      # Only 5 attempts
+    window_seconds=900,         # per 15 minutes
+    skip_successful_requests=True  # Only count failed attempts
+)
+app.use("/auth/login", auth_rate_limiter)
+```
+
+### Complete Security Setup
+
+Here's a complete example of a production-ready security setup:
+
+```python
+from artanis import App
+from artanis.middleware.security import (
+    CORSMiddleware,
+    CSPMiddleware,
+    HSTSMiddleware,
+    SecurityHeadersMiddleware,
+    RateLimitMiddleware
+)
+
+app = App()
+
+# 1. Rate limiting (apply first to reject abusive requests early)
+app.use(RateLimitMiddleware(
+    requests_per_window=1000,
+    window_seconds=3600
+))
+
+# 2. CORS for cross-origin requests
+app.use(CORSMiddleware(
+    allow_origins=["https://yourdomain.com"],
+    allow_credentials=True,
+    allow_headers=["Content-Type", "Authorization"]
+))
+
+# 3. Security headers
+app.use(SecurityHeadersMiddleware())
+
+# 4. HSTS for HTTPS enforcement
+app.use(HSTSMiddleware(
+    max_age=31536000,
+    include_subdomains=True,
+    preload=True
+))
+
+# 5. Content Security Policy
+app.use(CSPMiddleware(
+    directives={
+        "default-src": "'self'",
+        "script-src": "'self' 'unsafe-inline'",
+        "style-src": "'self' 'unsafe-inline'",
+        "img-src": "'self' data: https:",
+    }
+))
+
+# 6. Stricter rate limiting for sensitive endpoints
+app.use("/auth", RateLimitMiddleware(
+    requests_per_window=10,
+    window_seconds=300,
+    skip_successful_requests=True
+))
+
+@app.get("/")
+async def home(request):
+    return {"message": "Secure API endpoint"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+```
+
+### Error Handling for Security Middleware
+
+Security middleware integrates seamlessly with Artanis exception handling:
+
+```python
+from artanis.exceptions import RateLimitError
+from artanis.middleware.exception import ExceptionHandlerMiddleware
+
+# Custom handler for rate limit errors
+def handle_rate_limit_error(error: RateLimitError) -> dict:
+    return {
+        "error": "Rate limit exceeded",
+        "message": str(error),
+        "retry_after": error.details.get("retry_after", 60),
+        "limit": error.details.get("limit", 100)
+    }
+
+# Add exception handling middleware
+exception_handler = ExceptionHandlerMiddleware()
+exception_handler.add_handler(RateLimitError, handle_rate_limit_error)
+app.use(exception_handler)
+```
+
 
 ## 📊 Logging
 
