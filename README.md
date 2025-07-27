@@ -1794,17 +1794,29 @@ pytest tests/
 artanis/
 ├── src/
 │   └── artanis/
-│       ├── __init__.py     # Main framework code
-│       ├── logging.py      # Logging system
-│       └── middleware/     # Middleware system
+│       ├── __init__.py       # Main framework code with App class
+│       ├── _version.py       # Version management
+│       ├── exceptions.py     # Custom exception classes
+│       ├── logging.py        # Logging system
+│       ├── routing.py        # Router and Route classes with subrouting
+│       ├── py.typed          # Type hints marker
+│       └── middleware/       # Middleware system
+│           ├── __init__.py   # Middleware exports
+│           ├── chain.py      # Middleware execution chain
+│           ├── core.py       # Core middleware functionality
+│           ├── exception.py  # Exception handling middleware
+│           ├── response.py   # Response management
+│           └── security.py   # Security middleware (CORS, CSP, HSTS, etc.)
 ├── tests/
-│   ├── test_artanis.py     # Framework tests (16 tests)
-│   ├── test_middleware.py  # Middleware tests (22 tests)
-│   ├── test_logging.py     # Logging tests (14 tests)
-│   ├── test_exceptions.py  # Exception tests (29 tests)
-│   └── test_version.py     # Version tests (13 tests)
-├── pyproject.toml       # Project configuration
-└── README.md           # This file
+│   ├── test_artanis.py       # Framework tests (18 tests)
+│   ├── test_exceptions.py    # Exception tests (29 tests)
+│   ├── test_logging.py       # Logging tests (14 tests)
+│   ├── test_middleware.py    # Middleware tests (22 tests)
+│   ├── test_routing.py       # Routing tests (34 tests)
+│   ├── test_security.py      # Security middleware tests (31 tests)
+│   └── test_version.py       # Version tests (15 tests)
+├── pyproject.toml           # Project configuration
+└── README.md               # This file
 ```
 
 ## 🔧 Version Management
