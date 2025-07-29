@@ -15,10 +15,9 @@ A complete blog API demonstrating production-ready patterns with Artanis framewo
 ## Project Structure
 
 ```
-blog-api/
+blog_api/
 ├── app.py                  # Main application with configuration and routing
 ├── requirements.txt        # Project dependencies
-├── test_basic.py          # Basic functionality tests
 ├── routes/                # API route modules
 │   ├── auth.py           # Authentication endpoints (register, login, logout)
 │   └── posts.py          # Blog post endpoints (CRUD, search, upload)
@@ -49,19 +48,14 @@ blog-api/
    pip install -r requirements.txt
    ```
 
-4. **Run basic tests** (optional):
-   ```bash
-   python test_basic.py
-   ```
-
-5. **Start the server**:
+4. **Start the server**:
    ```bash
    python app.py
    # OR
    uvicorn app:app --host 127.0.0.1 --port 3000
    ```
 
-6. **Test the API**:
+5. **Test the API**:
    ```bash
    curl http://127.0.0.1:3000/health
    curl http://127.0.0.1:3000/docs
