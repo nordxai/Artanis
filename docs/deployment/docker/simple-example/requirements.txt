@@ -1,0 +1,2 @@
+artanis>=1.0.0
+uvicorn[standard]>=0.20.0
