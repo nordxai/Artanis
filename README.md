@@ -1,6 +1,7 @@
 # Artanis
 
 [![Tests](https://github.com/nordxai/projectArtanis/actions/workflows/test.yml/badge.svg)](https://github.com/nordxai/projectArtanis/actions/workflows/test.yml)
+[![Code Quality](https://github.com/nordxai/projectArtanis/actions/workflows/code-quality.yml/badge.svg)](https://github.com/nordxai/projectArtanis/actions/workflows/code-quality.yml)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-Open%20Source-green.svg)](LICENSE)
 
