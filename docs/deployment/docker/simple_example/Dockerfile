@@ -9,8 +9,8 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
-COPY requirements.txt .
+# Copy requirements and wheel file for better caching
+COPY requirements.txt artanis-0.1.0-py3-none-any.whl ./
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
