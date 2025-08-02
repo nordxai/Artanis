@@ -121,3 +121,14 @@ split-on-trailing-comma = true
 "docs/*" = [
     "T201",    # print found - allowed in documentation examples
 ]
+"src/artanis/cli/*" = [
+    "T201",    # print found - needed for CLI user feedback
+    "S603",    # subprocess call - needed for CLI tools
+    "PLW0603", # global statement - simplified for CLI demo purposes
+    "INP001",  # implicit namespace package - templates are standalone
+]
+"tests/test_cli.py" = [
+    "S108",    # hardcoded temp directory in tests
+    "SIM117",  # nested with statements - acceptable in tests
+    "PTH109",  # os.getcwd should be pathlib - legacy test code
+]
