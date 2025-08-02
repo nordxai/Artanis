@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from .asgi import send_error_response, send_response
+from .events import EventManager
 from .exceptions import HandlerError, MethodNotAllowed, RouteNotFound
 from .handlers import call_handler
 from .logging import RequestLoggingMiddleware, logger
@@ -31,6 +32,7 @@ class App:
         router: Router instance for handling routes
         middleware_manager: Manages global and path-based middleware
         middleware_executor: Executes middleware chains
+        event_manager: Manages application events and handlers
         logger: Application logger instance
 
     Example:
@@ -49,6 +51,7 @@ class App:
         self.router = Router()
         self.middleware_manager = MiddlewareManager()
         self.middleware_executor = MiddlewareExecutor(self.middleware_manager)
+        self.event_manager = EventManager()
         self.logger = logger
 
         # Add request logging middleware by default
@@ -183,6 +186,114 @@ class App:
         """
         self.router.mount(path, router)
 
+    # Event handling methods
+    def add_event_handler(
+        self,
+        event_name: str,
+        handler: Callable[..., Any],
+        priority: int = 0,
+        condition: Callable[..., bool] | None = None,
+    ) -> None:
+        """Register an event handler.
+
+        Args:
+            event_name: Name of the event to handle (e.g., 'startup', 'shutdown', or custom)
+            handler: Function to call when event is triggered
+            priority: Execution priority (higher numbers run first)
+            condition: Optional condition function to determine if handler should run
+
+        Examples:
+            ```python
+            # Built-in lifecycle events
+            app.add_event_handler("startup", setup_database)
+            app.add_event_handler("shutdown", cleanup_database)
+
+            # Custom events
+            app.add_event_handler("user_registered", send_welcome_email)
+            app.add_event_handler("payment_processed", update_inventory, priority=10)
+
+            # Conditional handlers
+            app.add_event_handler("order_placed",
+                                send_notification,
+                                condition=lambda data: data.get("urgent", False))
+            ```
+        """
+        self.event_manager.add_handler(event_name, handler, priority, condition)
+
+    async def emit_event(
+        self,
+        event_name: str,
+        data: Any = None,
+        source: str | None = None,
+        **metadata: Any,
+    ) -> None:
+        """Trigger all handlers for an event.
+
+        Args:
+            event_name: Name of the event to trigger
+            data: Data to pass to event handlers
+            source: Optional source identifier for the event
+            **metadata: Additional metadata to include in event context
+
+        Examples:
+            ```python
+            # Trigger custom events
+            await app.emit_event("user_registered", user_data)
+            await app.emit_event("payment_processed", payment_data, source="stripe")
+            await app.emit_event("order_completed", order_data, urgent=True)
+            ```
+        """
+        await self.event_manager.emit_event(event_name, data, source, **metadata)
+
+    def remove_event_handler(
+        self, event_name: str, handler: Callable[..., Any]
+    ) -> bool:
+        """Remove a specific event handler.
+
+        Args:
+            event_name: Name of the event
+            handler: Handler function to remove
+
+        Returns:
+            True if handler was found and removed, False otherwise
+
+        Example:
+            ```python
+            app.remove_event_handler("startup", old_setup_function)
+            ```
+        """
+        return self.event_manager.remove_handler(event_name, handler)
+
+    def add_event_middleware(self, middleware: Callable[..., Any]) -> None:
+        """Add middleware that runs for all events.
+
+        Args:
+            middleware: Function that will be called for every event
+
+        Example:
+            ```python
+            async def event_logger(event_context):
+                print(f"Event: {event_context.name} at {event_context.timestamp}")
+
+            app.add_event_middleware(event_logger)
+            ```
+        """
+        self.event_manager.add_event_middleware(middleware)
+
+    def list_events(self) -> list[str]:
+        """Get list of all registered event names.
+
+        Returns:
+            List of event names that have handlers
+
+        Example:
+            ```python
+            events = app.list_events()
+            print(f"Registered events: {events}")
+            ```
+        """
+        return self.event_manager.list_events()
+
     # Properties for backward compatibility with tests
     @property
     def global_middleware(self) -> list[Callable[..., Any]]:
@@ -238,6 +349,37 @@ class App:
         allowed_methods = self.router.get_allowed_methods(path)
         return len(allowed_methods) > 0, allowed_methods
 
+    async def _handle_lifespan(
+        self,
+        scope: dict[str, Any],
+        receive: Callable[..., Any],
+        send: Callable[..., Any],
+    ) -> None:
+        """Handle ASGI lifespan protocol for startup and shutdown events.
+
+        Args:
+            scope: ASGI scope dictionary
+            receive: ASGI receive callable
+            send: ASGI send callable
+        """
+        message = await receive()
+
+        if message["type"] == "lifespan.startup":
+            try:
+                await self.event_manager.execute_startup_handlers()
+                await send({"type": "lifespan.startup.complete"})
+            except Exception as e:
+                self.logger.error(f"Startup failed: {e}")
+                await send({"type": "lifespan.startup.failed", "message": str(e)})
+
+        elif message["type"] == "lifespan.shutdown":
+            try:
+                await self.event_manager.execute_shutdown_handlers()
+                await send({"type": "lifespan.shutdown.complete"})
+            except Exception as e:
+                self.logger.error(f"Shutdown failed: {e}")
+                await send({"type": "lifespan.shutdown.failed", "message": str(e)})
+
     async def __call__(
         self,
         scope: dict[str, Any],
@@ -246,14 +388,16 @@ class App:
     ) -> None:
         """ASGI application entry point.
 
-        Handles incoming HTTP requests by routing them through the middleware
-        chain to the appropriate route handler.
+        Handles incoming HTTP requests and ASGI lifespan events.
 
         Args:
             scope: ASGI scope dictionary
             receive: ASGI receive callable
             send: ASGI send callable
         """
+        if scope["type"] == "lifespan":
+            await self._handle_lifespan(scope, receive, send)
+            return
         if scope["type"] != "http":
             return
 
