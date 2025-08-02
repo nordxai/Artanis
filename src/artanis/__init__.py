@@ -110,7 +110,11 @@ class Request:
         self.path_params: dict[
             str, str
         ] = {}  # For middleware access to path parameters
-        self.headers: dict[str, str] = dict(scope.get("headers", []))
+        # Convert ASGI headers (list of byte tuples) to string dict
+        raw_headers = scope.get("headers", [])
+        self.headers: dict[str, str] = {
+            name.decode().lower(): value.decode() for name, value in raw_headers
+        }
 
     async def body(self) -> bytes:
         """Get the request body as bytes.
