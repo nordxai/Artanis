@@ -25,6 +25,7 @@ A lightweight, minimalist ASGI web framework for Python built with simplicity an
 - **Proper HTTP Status Codes**: Automatic 404, 405, and 500 error handling
 - **Type Hints**: Full type annotation support with mypy compatibility
 - **Structured Logging**: Built-in logging system with configurable formatters and request tracking
+- **Event System**: Extensible event handlers for startup, shutdown, and custom business events with priority execution
 
 ## 📦 Installation
 
@@ -995,6 +996,450 @@ exception_handler.add_handler(RateLimitError, handle_rate_limit_error)
 app.use(exception_handler)
 ```
 
+## 📡 Event Handling System
+
+Artanis provides a powerful, extensible event system that goes beyond traditional startup/shutdown events. With method-style APIs, priority execution, and unlimited custom events, you can build sophisticated event-driven applications with ease.
+
+### Event System Overview
+
+The event system supports:
+- **ASGI Lifecycle Events**: Automatic startup and shutdown handling
+- **Custom Business Events**: Unlimited user-defined events for application logic
+- **Priority Execution**: Control the order of event handler execution
+- **Conditional Handlers**: Execute handlers only when specific conditions are met
+- **Event Middleware**: Cross-cutting concerns that run for all events
+- **Type Safety**: Full type annotation support for event handlers and data
+
+### Basic Event Handler Registration
+
+Register event handlers using the method-style API:
+
+```python
+from artanis import App
+
+app = App()
+
+# Basic event handlers
+def setup_database():
+    print("Database connected")
+
+def cleanup_database():
+    print("Database disconnected")
+
+# Register lifecycle events
+app.add_event_handler("startup", setup_database)
+app.add_event_handler("shutdown", cleanup_database)
+
+# Custom business events
+def send_welcome_email(user_data):
+    print(f"Welcome email sent to {user_data['email']}")
+
+def update_analytics(user_data):
+    print(f"Analytics updated for user {user_data['email']}")
+
+app.add_event_handler("user_registered", send_welcome_email)
+app.add_event_handler("user_registered", update_analytics)
+```
+
+### ASGI Lifecycle Integration
+
+Artanis automatically integrates with ASGI servers for proper application lifecycle management:
+
+```python
+from artanis import App
+import asyncio
+
+app = App()
+
+# Startup event - runs when server starts
+async def initialize_services():
+    print("Initializing external services...")
+    # Connect to database, setup caches, etc.
+    await asyncio.sleep(0.1)  # Simulate async setup
+    print("Services initialized")
+
+# Shutdown event - runs when server stops
+async def cleanup_services():
+    print("Cleaning up services...")
+    # Close database connections, cleanup caches, etc.
+    await asyncio.sleep(0.1)  # Simulate async cleanup
+    print("Services cleaned up")
+
+app.add_event_handler("startup", initialize_services)
+app.add_event_handler("shutdown", cleanup_services)
+
+# When running with: uvicorn main:app
+# Startup handlers run automatically when server starts
+# Shutdown handlers run automatically when server stops (SIGTERM/SIGINT)
+```
+
+### Custom Business Events
+
+Create and trigger custom events for application-specific workflows:
+
+```python
+app = App()
+
+# E-commerce order processing events
+def validate_order(order_data):
+    print(f"Validating order {order_data['order_id']}")
+    return order_data
+
+def process_payment(order_data):
+    print(f"Processing payment for order {order_data['order_id']}")
+
+def update_inventory(order_data):
+    print(f"Updating inventory for order {order_data['order_id']}")
+
+def send_confirmation_email(order_data):
+    print(f"Sending confirmation email for order {order_data['order_id']}")
+
+# Register event handlers
+app.add_event_handler("order_placed", validate_order)
+app.add_event_handler("order_placed", process_payment)
+app.add_event_handler("order_placed", update_inventory)
+app.add_event_handler("order_placed", send_confirmation_email)
+
+# Route handler that triggers the event
+async def place_order(request):
+    order_data = await request.json()
+
+    # Trigger the custom event
+    await app.emit_event("order_placed", order_data)
+
+    return {"message": "Order placed successfully", "order_id": order_data["order_id"]}
+
+app.post("/orders", place_order)
+```
+
+### Priority-Based Execution
+
+Control the execution order of event handlers with priorities:
+
+```python
+app = App()
+
+# Higher priority numbers execute first
+def critical_validation(user_data):
+    print("Critical validation (priority 10)")
+
+def standard_processing(user_data):
+    print("Standard processing (priority 5)")
+
+def optional_analytics(user_data):
+    print("Optional analytics (priority 1)")
+
+# Register with different priorities
+app.add_event_handler("user_registered", critical_validation, priority=10)
+app.add_event_handler("user_registered", standard_processing, priority=5)
+app.add_event_handler("user_registered", optional_analytics, priority=1)
+
+# Execution order: critical_validation -> standard_processing -> optional_analytics
+```
+
+### Conditional Event Handlers
+
+Execute handlers only when specific conditions are met:
+
+```python
+app = App()
+
+def send_premium_notification(order_data):
+    print(f"Sending premium notification for high-value order {order_data['order_id']}")
+
+def send_standard_notification(order_data):
+    print(f"Sending standard notification for order {order_data['order_id']}")
+
+# Conditional handler - only for orders over $100
+app.add_event_handler(
+    "order_placed",
+    send_premium_notification,
+    condition=lambda data: data.get("amount", 0) > 100
+)
+
+# Standard handler - runs for all orders
+app.add_event_handler("order_placed", send_standard_notification)
+
+# Usage examples:
+# Low-value order ($50) - only standard notification
+# High-value order ($150) - both premium and standard notifications
+```
+
+### Event Middleware
+
+Add middleware that runs for all events, perfect for cross-cutting concerns:
+
+```python
+from artanis import App, EventContext
+
+app = App()
+
+# Event logging middleware
+async def event_logger_middleware(event_context: EventContext):
+    print(f"Event '{event_context.name}' triggered at {event_context.timestamp}")
+    if event_context.source:
+        print(f"  Source: {event_context.source}")
+
+# Event timing middleware
+import time
+async def event_timer_middleware(event_context: EventContext):
+    event_context.metadata["start_time"] = time.time()
+
+# Add event middleware
+app.add_event_middleware(event_logger_middleware)
+app.add_event_middleware(event_timer_middleware)
+
+# All events will now be logged and timed automatically
+```
+
+### Event Context and Data Passing
+
+Event handlers can receive data in multiple formats:
+
+```python
+from artanis import App, EventContext
+
+app = App()
+
+# Handler that receives just the data
+def simple_handler(user_data):
+    print(f"User: {user_data}")
+
+# Handler that receives the full event context
+def context_handler(event_context: EventContext):
+    print(f"Event: {event_context.name}")
+    print(f"Data: {event_context.data}")
+    print(f"Source: {event_context.source}")
+    print(f"Timestamp: {event_context.timestamp}")
+    print(f"Metadata: {event_context.metadata}")
+
+# Handler with no parameters
+def notification_handler():
+    print("Notification sent")
+
+app.add_event_handler("user_action", simple_handler)
+app.add_event_handler("user_action", context_handler)
+app.add_event_handler("user_action", notification_handler)
+
+# Emit event with metadata
+async def some_route(request):
+    user_data = {"user_id": "123", "action": "login"}
+
+    await app.emit_event(
+        "user_action",
+        user_data,
+        source="authentication_service",
+        session_id="abc123",
+        ip_address="192.168.1.1"
+    )
+
+    return {"status": "logged"}
+```
+
+### Advanced Event Management
+
+The event system provides powerful management capabilities:
+
+```python
+app = App()
+
+# List all registered events
+def admin_events():
+    events = app.list_events()
+    return {"registered_events": events}
+
+app.get("/admin/events", admin_events)
+
+# Remove specific event handlers
+def maintenance_mode_handler():
+    print("System in maintenance mode")
+
+app.add_event_handler("user_login", maintenance_mode_handler)
+
+# Later, remove the handler when maintenance is done
+def disable_maintenance():
+    app.remove_event_handler("user_login", maintenance_mode_handler)
+    return {"message": "Maintenance mode disabled"}
+
+app.post("/admin/maintenance/disable", disable_maintenance)
+
+# Get handlers for a specific event
+def get_event_handlers(event_name: str):
+    handlers = app.event_manager.get_handlers(event_name)
+    return {
+        "event": event_name,
+        "handler_count": len(handlers),
+        "handlers": [
+            {
+                "priority": h.priority,
+                "has_condition": h.condition is not None,
+                "has_schema": h.schema is not None
+            }
+            for h in handlers
+        ]
+    }
+```
+
+### Real-World Use Cases
+
+#### Database Lifecycle Management
+
+```python
+import asyncio
+import aioredis
+
+app = App()
+db_pool = None
+redis_client = None
+
+async def setup_database():
+    global db_pool, redis_client
+    print("Setting up database connections...")
+
+    # Setup database pool (example)
+    # db_pool = await create_db_pool()
+
+    # Setup Redis
+    redis_client = await aioredis.from_url("redis://localhost")
+
+    print("Database connections established")
+
+async def cleanup_database():
+    global db_pool, redis_client
+    print("Closing database connections...")
+
+    if redis_client:
+        await redis_client.close()
+
+    if db_pool:
+        await db_pool.close()
+
+    print("Database connections closed")
+
+app.add_event_handler("startup", setup_database)
+app.add_event_handler("shutdown", cleanup_database)
+```
+
+#### User Registration Workflow
+
+```python
+app = App()
+
+def log_user_registration(user_data):
+    print(f"New user registered: {user_data['email']}")
+
+async def send_welcome_email(user_data):
+    # Simulate async email sending
+    await asyncio.sleep(0.1)
+    print(f"Welcome email sent to {user_data['email']}")
+
+def update_user_analytics(user_data):
+    print(f"Analytics updated for user {user_data['email']}")
+
+def check_referral_bonus(user_data):
+    if user_data.get("referral_code"):
+        print(f"Processing referral bonus for {user_data['email']}")
+
+# Register handlers with priorities
+app.add_event_handler("user_registered", log_user_registration, priority=10)
+app.add_event_handler("user_registered", send_welcome_email, priority=8)
+app.add_event_handler("user_registered", update_user_analytics, priority=5)
+app.add_event_handler("user_registered", check_referral_bonus, priority=3)
+
+async def register_user(request):
+    user_data = await request.json()
+
+    # Create user in database
+    # user = await create_user(user_data)
+
+    # Trigger registration event
+    await app.emit_event("user_registered", user_data, source="registration_api")
+
+    return {"message": "User registered successfully"}
+
+app.post("/register", register_user)
+```
+
+#### Audit Logging System
+
+```python
+from datetime import datetime
+
+app = App()
+
+async def audit_logger(event_context: EventContext):
+    audit_data = {
+        "event": event_context.name,
+        "timestamp": event_context.timestamp.isoformat(),
+        "source": event_context.source,
+        "data": event_context.data,
+        "metadata": event_context.metadata
+    }
+
+    # Log to audit system
+    print(f"AUDIT: {audit_data}")
+
+# Add audit logging to all events
+app.add_event_middleware(audit_logger)
+
+# Now all events are automatically audited
+```
+
+### Integration with Type System
+
+Artanis event system is fully typed for excellent developer experience:
+
+```python
+from typing import Dict, Any, Optional
+from artanis import App, EventContext
+
+app = App()
+
+# Type-annotated event handlers
+async def typed_user_handler(user_data: Dict[str, Any]) -> None:
+    user_id: str = user_data["user_id"]
+    email: Optional[str] = user_data.get("email")
+    print(f"Processing user {user_id} with email {email}")
+
+def typed_context_handler(event_context: EventContext) -> None:
+    event_name: str = event_context.name
+    timestamp: datetime = event_context.timestamp
+    print(f"Event {event_name} at {timestamp}")
+
+# Type-safe event registration
+app.add_event_handler("user_updated", typed_user_handler)
+app.add_event_handler("user_updated", typed_context_handler)
+```
+
+### Comparison with Other Frameworks
+
+Artanis event system provides several advantages over similar frameworks:
+
+**vs. FastAPI Events:**
+- **Unlimited Custom Events**: Not limited to just startup/shutdown
+- **Priority Execution**: Control handler execution order
+- **Event Middleware**: Cross-cutting concerns for all events
+- **Method-Style API**: Clean `app.add_event_handler()` instead of decorators
+- **Conditional Handlers**: Execute only when conditions are met
+
+**vs. Flask Signals:**
+- **ASGI Integration**: Native support for async/await patterns
+- **Structured Context**: Rich event context with metadata
+- **Built-in Priority**: No need for external priority systems
+- **Type Safety**: Full type annotation support
+
+### Event System Best Practices
+
+1. **Use Descriptive Event Names**: Choose clear, action-based names like `user_registered`, `order_completed`
+2. **Handle Errors Gracefully**: Event handlers should not crash the application
+3. **Keep Handlers Focused**: Each handler should have a single responsibility
+4. **Use Priorities Wisely**: Critical operations first, optional ones last
+5. **Leverage Middleware**: Use event middleware for cross-cutting concerns like logging and auditing
+6. **Test Event Flows**: Ensure your event-driven workflows work correctly
+7. **Document Custom Events**: Maintain documentation of your application's custom events
+
+The event system makes Artanis ideal for building sophisticated, event-driven applications while maintaining the framework's core simplicity and performance.
+
 
 ## 📊 Logging
 
@@ -1795,10 +2240,15 @@ pytest tests/
 artanis/
 ├── src/
 │   └── artanis/
-│       ├── __init__.py       # Main framework code with App class
+│       ├── __init__.py       # Main framework exports
 │       ├── _version.py       # Version management
+│       ├── application.py    # Main App class
+│       ├── asgi.py          # ASGI protocol handling
+│       ├── events.py        # Event handling system
 │       ├── exceptions.py     # Custom exception classes
+│       ├── handlers.py      # Parameter injection and handler execution
 │       ├── logging.py        # Logging system
+│       ├── request.py       # HTTP request handling
 │       ├── routing.py        # Router and Route classes with subrouting
 │       ├── py.typed          # Type hints marker
 │       └── middleware/       # Middleware system
@@ -1810,12 +2260,14 @@ artanis/
 │           └── security.py   # Security middleware (CORS, CSP, HSTS, etc.)
 ├── tests/
 │   ├── test_artanis.py       # Framework tests (18 tests)
+│   ├── test_events.py        # Event handling tests (28 tests)
 │   ├── test_exceptions.py    # Exception tests (29 tests)
 │   ├── test_logging.py       # Logging tests (14 tests)
 │   ├── test_middleware.py    # Middleware tests (22 tests)
 │   ├── test_routing.py       # Routing tests (34 tests)
 │   ├── test_security.py      # Security middleware tests (31 tests)
 │   └── test_version.py       # Version tests (15 tests)
+│   # Total: 191 comprehensive tests
 ├── pyproject.toml           # Project configuration
 └── README.md               # This file
 ```
