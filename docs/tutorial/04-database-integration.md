@@ -1,34 +1,34 @@
 # 4. Database Integration
 
-In this section, we'll replace our in-memory database with a real SQLite database. We'll use the `aiosqlite` library to interact with the database asynchronously.
+In this section, we'll replace our in-memory database with a real SQLite database. We'll use the built-in `sqlite3` library for simplicity.
 
-First, let's install `aiosqlite`:
+Note: SQLite operations in Python are synchronous by default. For production applications with high concurrency, consider using `aiosqlite` for true async database operations.
 
-```bash
-pip install aiosqlite
-```
-
-Next, create a new file called `database.py` and add the following code:
+First, let's add the database functions directly to our `main.py` file:
 
 ```python
-# database.py
-import aiosqlite
+# Add these database functions to main.py
+import sqlite3
 
-DATABASE_URL = "blog.db"
+# Shared in-memory database connection
+_db_connection = None
 
-async def get_db_connection():
-    return await aiosqlite.connect(DATABASE_URL)
+def get_db_connection():
+    global _db_connection
+    if _db_connection is None:
+        _db_connection = sqlite3.connect(":memory:", check_same_thread=False)
+    return _db_connection
 
-async def create_tables():
-    async with aiosqlite.connect(DATABASE_URL) as db:
-        await db.execute("""
+def create_tables():
+    with get_db_connection() as db:
+        db.execute("""
             CREATE TABLE IF NOT EXISTS posts (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 title TEXT NOT NULL,
                 content TEXT NOT NULL
             )
         """)
-        await db.commit()
+        db.commit()
 ```
 
 Now, update your `main.py` file to use the database:
@@ -44,27 +44,25 @@ import uvicorn
 
 app = App()
 
-async def startup():
-    await create_tables()
-
-app.add_event_handler("startup", startup)
+# Initialize database tables
+create_tables()
 
 # ... (middleware)
 
 async def get_posts():
-    async with get_db_connection() as db:
-        cursor = await db.execute("SELECT id, title, content FROM posts")
-        rows = await cursor.fetchall()
+    with get_db_connection() as db:
+        cursor = db.execute("SELECT id, title, content FROM posts")
+        rows = cursor.fetchall()
         return [{"id": row[0], "title": row[1], "content": row[2]} for row in rows]
 
 async def create_post(request):
     post_data = await request.json()
-    async with get_db_connection() as db:
-        cursor = await db.execute(
+    with get_db_connection() as db:
+        cursor = db.execute(
             "INSERT INTO posts (title, content) VALUES (?, ?)",
             (post_data["title"], post_data["content"])
         )
-        await db.commit()
+        db.commit()
         return {"message": "Post created", "post_id": cursor.lastrowid}
 
 # ... (update get_post, update_post, delete_post to use the database)

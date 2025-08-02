@@ -15,13 +15,12 @@ async def create_post(request):
     post_data = await request.json()
     if not post_data.get("title") or not post_data.get("content"):
         raise ValidationError("Both title and content are required")
-
-    async with get_db_connection() as db:
-        cursor = await db.execute(
+    with get_db_connection() as db:
+        cursor = db.execute(
             "INSERT INTO posts (title, content) VALUES (?, ?)",
             (post_data["title"], post_data["content"])
         )
-        await db.commit()
+        db.commit()
         return {"message": "Post created", "post_id": cursor.lastrowid}
 
 # ... (update update_post with similar validation)
