@@ -165,7 +165,7 @@ class ExceptionHandlerMiddleware:
             Response object with error handling applied
         """
         try:
-            return await next_middleware(request)
+            return await next_middleware()
 
         except Exception as e:
             # Check for custom handlers first

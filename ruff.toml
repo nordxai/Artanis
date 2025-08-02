@@ -118,3 +118,6 @@ split-on-trailing-comma = true
     "SLF001",  # private member accessed
     "TRY002",  # create your own exception
 ]
+"docs/*" = [
+    "T201",    # print found - allowed in documentation examples
+]
