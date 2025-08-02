@@ -382,7 +382,7 @@ class TestExceptionHandlerMiddleware:
         request.scope = {"method": "GET", "path": "/test"}
         response = Response()
 
-        async def failing_middleware(req):
+        async def failing_middleware():
             msg = "Invalid data"
             raise ValidationError(msg, field="email")
 
@@ -420,7 +420,7 @@ class TestExceptionHandlerMiddleware:
         request.scope = {"method": "GET", "path": "/test"}
         response = Response()
 
-        async def failing_middleware(req):
+        async def failing_middleware():
             msg = "Debug error"
             raise ValueError(msg)
 
