@@ -39,7 +39,8 @@ app = App()
 async def startup():
     await create_tables()
 
-app.add_event_handler("startup", startup)
+# Initialize database tables when module loads
+startup()
 
 app.mount("/", posts_router)
 

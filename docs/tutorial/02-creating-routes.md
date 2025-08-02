@@ -39,11 +39,13 @@ async def create_post(request):
     return {"message": "Post created", "post_id": post_id}
 
 async def get_post(post_id: int):
+    post_id = int(post_id)
     if post_id not in posts:
         raise RouteNotFound(f"Post with ID {post_id} not found")
     return posts[post_id]
 
 async def update_post(post_id: int, request):
+    post_id = int(post_id)
     if post_id not in posts:
         raise RouteNotFound(f"Post with ID {post_id} not found")
     post_data = await request.json()
@@ -51,6 +53,7 @@ async def update_post(post_id: int, request):
     return {"message": f"Post {post_id} updated"}
 
 async def delete_post(post_id: int):
+    post_id = int(post_id)
     if post_id not in posts:
         raise RouteNotFound(f"Post with ID {post_id} not found")
     del posts[post_id]
@@ -59,12 +62,12 @@ async def delete_post(post_id: int):
 app.get("/", root)
 app.get("/posts", get_posts)
 app.post("/posts", create_post)
-app.get("/posts/{post_id}", get_post)
-app.put("/posts/{post_id}", update_post)
-app.delete("/posts/{post_id}", delete_post)
+app.get("/post/{post_id}", get_post)
+app.put("/post/{post_id}", update_post)
+app.delete("/post/{post_id}", delete_post)
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="127.0.0.1", port=8000)
 ```
 
 Now you can try out the new routes using a tool like `curl` or an API client like Postman.
