@@ -6,7 +6,7 @@ middleware management, and ASGI request processing.
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 from .asgi import send_error_response, send_response
 from .events import EventManager
@@ -41,9 +41,10 @@ class App:
 
         app = App()
 
-        @app.get('/hello/{name}')
         async def hello(name: str):
             return {'message': f'Hello, {name}!'}
+
+        app.get('/hello/{name}', hello)
         ```
     """
 
@@ -53,6 +54,10 @@ class App:
         self.middleware_executor = MiddlewareExecutor(self.middleware_manager)
         self.event_manager = EventManager()
         self.logger = logger
+
+        # OpenAPI integration
+        self._openapi_spec: Any | None = None
+        self._openapi_docs_manager: Any | None = None
 
         # Add request logging middleware by default
         if enable_request_logging:
@@ -380,7 +385,7 @@ class App:
                 self.logger.error(f"Shutdown failed: {e}")
                 await send({"type": "lifespan.shutdown.failed", "message": str(e)})
 
-    async def __call__(
+    async def __call__(  # noqa: PLR0915
         self,
         scope: dict[str, Any],
         receive: Callable[..., Any],
@@ -422,7 +427,20 @@ class App:
                         route["handler"], path_params, req, route
                     )
                     if not response.is_finished():
-                        response.json(response_data)
+                        # Check if handler has content type hint
+                        handler = route["handler"]
+                        if hasattr(handler, "_artanis_content_type"):
+                            content_type = handler._artanis_content_type  # noqa: SLF001
+                            if content_type == "text/html":
+                                response.body = response_data
+                                response.set_header("Content-Type", "text/html")
+                            elif content_type == "application/json":
+                                response.body = response_data
+                                response.set_header("Content-Type", "application/json")
+                            else:
+                                response.json(response_data)
+                        else:
+                            response.json(response_data)
                     return response
                 except HandlerError as e:
                     self.logger.exception(
@@ -466,3 +484,312 @@ class App:
         except Exception as e:
             self.logger.exception(f"Unhandled error: {e!s}")
             await send_error_response(send, 500, "Internal Server Error")
+
+    # OpenAPI Integration Methods
+
+    def generate_openapi_spec(
+        self,
+        title: str = "Artanis API",
+        version: str = "1.0.0",
+        description: str = "API built with Artanis framework",
+    ) -> dict[str, Any]:
+        """Generate OpenAPI specification from registered routes.
+
+        Args:
+            title: API title
+            version: API version
+            description: API description
+
+        Returns:
+            OpenAPI specification dictionary
+
+        Example:
+            ```python
+            spec = app.generate_openapi_spec(
+                title="My API",
+                version="2.0.0",
+                description="A comprehensive REST API"
+            )
+            ```
+        """
+        try:
+            from artanis.openapi import OpenAPIGenerator
+
+            generator = OpenAPIGenerator()
+            self._openapi_spec = generator.generate_spec(
+                self, title, version, description
+            )
+            return self._openapi_spec.to_dict()
+        except ImportError:
+            msg = (
+                "OpenAPI functionality requires the openapi package. "
+                "Install with: pip install 'artanis[openapi]'"
+            )
+            raise ImportError(msg)
+
+    def serve_docs(
+        self,
+        docs_path: str = "/docs",
+        redoc_path: str = "/redoc",
+        openapi_path: str = "/openapi.json",
+        auto_generate: bool = True,
+    ) -> None:
+        """Enable interactive API documentation endpoints.
+
+        Args:
+            docs_path: Path for Swagger UI documentation
+            redoc_path: Path for ReDoc documentation
+            openapi_path: Path for OpenAPI JSON specification
+            auto_generate: Whether to auto-generate OpenAPI spec if not exists
+
+        Example:
+            ```python
+            app.serve_docs()  # Enables /docs, /redoc, /openapi.json
+
+            # Custom paths
+            app.serve_docs(
+                docs_path="/api-docs",
+                redoc_path="/api-redoc",
+                openapi_path="/api/openapi.json"
+            )
+            ```
+        """
+        try:
+            from artanis.openapi import OpenAPIDocsManager, OpenAPIGenerator
+
+            # Auto-generate spec if needed
+            if auto_generate and self._openapi_spec is None:
+                generator = OpenAPIGenerator()
+                self._openapi_spec = generator.generate_spec(self)
+
+            if self._openapi_spec is None:
+                msg = "No OpenAPI specification available. Call generate_openapi_spec() first."
+                raise ValueError(msg)
+
+            # Setup documentation manager
+            self._openapi_docs_manager = OpenAPIDocsManager(
+                self._openapi_spec,
+                docs_path=docs_path,
+                redoc_path=redoc_path,
+                openapi_path=openapi_path,
+            )
+
+            # Register documentation routes
+            self._openapi_docs_manager.setup_docs_routes(self)
+
+            self.logger.info("OpenAPI documentation enabled:")
+            self.logger.info(f"  Swagger UI: {docs_path}")
+            self.logger.info(f"  ReDoc UI: {redoc_path}")
+            self.logger.info(f"  OpenAPI JSON: {openapi_path}")
+
+        except ImportError:
+            msg = (
+                "OpenAPI functionality requires the openapi package. "
+                "Install with: pip install 'artanis[openapi]'"
+            )
+            raise ImportError(msg)
+
+    def export_openapi(
+        self,
+        file_path: str,
+        format_type: str = "json",
+        auto_generate: bool = True,
+    ) -> None:
+        """Export OpenAPI specification to a file.
+
+        Args:
+            file_path: Path where to save the specification
+            format_type: Export format ("json" or "yaml")
+            auto_generate: Whether to auto-generate spec if not exists
+
+        Example:
+            ```python
+            app.export_openapi("api.json")
+            app.export_openapi("api.yaml", format_type="yaml")
+            ```
+        """
+        try:
+            from artanis.openapi import OpenAPIGenerator
+
+            # Auto-generate spec if needed
+            if auto_generate and self._openapi_spec is None:
+                generator = OpenAPIGenerator()
+                self._openapi_spec = generator.generate_spec(self)
+
+            if self._openapi_spec is None:
+                msg = "No OpenAPI specification available. Call generate_openapi_spec() first."
+                raise ValueError(msg)
+
+            # Export to file
+            from pathlib import Path
+
+            with Path(file_path).open("w", encoding="utf-8") as f:
+                if format_type.lower() == "yaml":
+                    try:
+                        import yaml  # type: ignore[import-untyped]
+
+                        yaml.dump(
+                            self._openapi_spec.to_dict(), f, default_flow_style=False
+                        )
+                    except ImportError:
+                        msg = "YAML export requires PyYAML: pip install PyYAML"
+                        raise ImportError(msg)
+                else:
+                    f.write(self._openapi_spec.to_json())
+
+            self.logger.info(f"OpenAPI specification exported to: {file_path}")
+
+        except ImportError:
+            msg = (
+                "OpenAPI functionality requires the openapi package. "
+                "Install with: pip install 'artanis[openapi]'"
+            )
+            raise ImportError(msg)
+
+    def add_openapi_metadata(
+        self,
+        title: str | None = None,
+        version: str | None = None,
+        description: str | None = None,
+        servers: list[dict[str, str]] | None = None,
+        tags: list[dict[str, str]] | None = None,
+        security_schemes: dict[str, dict[str, Any]] | None = None,
+    ) -> None:
+        """Add metadata to OpenAPI specification.
+
+        Args:
+            title: API title
+            version: API version
+            description: API description
+            servers: List of server objects
+            tags: List of tag objects
+            security_schemes: Security scheme definitions
+
+        Example:
+            ```python
+            app.add_openapi_metadata(
+                title="My API",
+                version="2.0.0",
+                description="A comprehensive REST API",
+                servers=[
+                    {"url": "https://api.example.com", "description": "Production"},
+                    {"url": "https://staging-api.example.com", "description": "Staging"}
+                ],
+                tags=[
+                    {"name": "users", "description": "User operations"},
+                    {"name": "auth", "description": "Authentication"}
+                ],
+                security_schemes={
+                    "bearer": {
+                        "type": "http",
+                        "scheme": "bearer",
+                        "bearerFormat": "JWT"
+                    }
+                }
+            )
+            ```
+        """
+        try:
+            from artanis.openapi import OpenAPISpec
+
+            # Create or update spec
+            if self._openapi_spec is None:
+                self._openapi_spec = OpenAPISpec(
+                    title=title or "Artanis API",
+                    version=version or "1.0.0",
+                    description=description or "API built with Artanis framework",
+                )
+            else:
+                if title:
+                    self._openapi_spec.title = title
+                if version:
+                    self._openapi_spec.version = version
+                if description:
+                    self._openapi_spec.description = description
+
+            # Add servers
+            if servers:
+                for server in servers:
+                    self._openapi_spec.add_server(
+                        server["url"], server.get("description", "")
+                    )
+
+            # Add tags
+            if tags:
+                for tag in tags:
+                    self._openapi_spec.add_tag(tag["name"], tag.get("description", ""))
+
+            # Add security schemes
+            if security_schemes:
+                for name, scheme in security_schemes.items():
+                    self._openapi_spec.add_security_scheme(
+                        name,
+                        scheme["type"],
+                        **{k: v for k, v in scheme.items() if k != "type"},
+                    )
+
+        except ImportError:
+            msg = (
+                "OpenAPI functionality requires the openapi package. "
+                "Install with: pip install 'artanis[openapi]'"
+            )
+            raise ImportError(msg)
+
+    def add_openapi_validation(
+        self,
+        validate_requests: bool = True,
+        validate_responses: bool = False,
+        strict_mode: bool = False,
+    ) -> None:
+        """Add OpenAPI request/response validation middleware.
+
+        Args:
+            validate_requests: Whether to validate incoming requests
+            validate_responses: Whether to validate outgoing responses
+            strict_mode: Whether to enforce strict validation
+
+        Example:
+            ```python
+            # Basic request validation
+            app.add_openapi_validation()
+
+            # Strict validation for both requests and responses
+            app.add_openapi_validation(
+                validate_requests=True,
+                validate_responses=True,
+                strict_mode=True
+            )
+            ```
+        """
+        try:
+            from artanis.openapi import OpenAPIGenerator, ValidationMiddleware
+
+            # Generate spec if not exists
+            if self._openapi_spec is None:
+                generator = OpenAPIGenerator()
+                self._openapi_spec = generator.generate_spec(self)
+
+            # Add validation middleware
+            validation_middleware = ValidationMiddleware(
+                self._openapi_spec,
+                validate_requests=validate_requests,
+                validate_responses=validate_responses,
+                strict_mode=strict_mode,
+            )
+
+            self.use(validation_middleware)
+
+            self.logger.info("OpenAPI validation middleware enabled")
+            if validate_requests:
+                self.logger.info("  Request validation: enabled")
+            if validate_responses:
+                self.logger.info("  Response validation: enabled")
+            if strict_mode:
+                self.logger.info("  Strict mode: enabled")
+
+        except ImportError:
+            msg = (
+                "OpenAPI functionality requires the openapi package. "
+                "Install with: pip install 'artanis[openapi]'"
+            )
+            raise ImportError(msg)
