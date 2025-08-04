@@ -89,8 +89,12 @@ test = [
     "pytest-cov>=3.0.0",
     "coverage>=6.0.0",
 ]
+openapi = [
+    # OpenAPI functionality is built-in, no external dependencies required
+    # Future: could add pydantic>=2.0.0 for enhanced schema validation
+]
 all = [
-    "artanis[dev,test]",
+    "artanis[dev,test,openapi]",
 ]
 
 [tool.setuptools.packages.find]

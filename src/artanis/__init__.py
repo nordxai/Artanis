@@ -98,3 +98,37 @@ from .routing import (
 from .routing import (
     Router as Router,
 )
+
+# OpenAPI system (optional import)
+try:
+    from .openapi import (
+        OpenAPIGenerator as OpenAPIGenerator,
+    )
+    from .openapi import (
+        OpenAPISpec as OpenAPISpec,
+    )
+    from .openapi import (
+        ReDocUI as ReDocUI,
+    )
+    from .openapi import (
+        SchemaGenerator as SchemaGenerator,
+    )
+    from .openapi import (
+        SwaggerUI as SwaggerUI,
+    )
+    from .openapi import (
+        ValidationMiddleware as OpenAPIValidationMiddleware,
+    )
+    from .openapi import (
+        openapi_route as openapi_route,
+    )
+    from .openapi import (
+        request_model as request_model,
+    )
+    from .openapi import (
+        response_model as response_model,
+    )
+
+    _OPENAPI_AVAILABLE = True
+except ImportError:
+    _OPENAPI_AVAILABLE = False
