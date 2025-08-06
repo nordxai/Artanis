@@ -9,13 +9,13 @@ from __future__ import annotations
 import inspect
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type, Union, get_type_hints
 
-from src.artanis.routing import Route
+from artanis.routing import Route
 
 from .schema import SchemaGenerator
 
 if TYPE_CHECKING:
-    from src.artanis.application import App
-    from src.artanis.routing import Router
+    from artanis.application import App
+    from artanis.routing import Router
 
 
 class OpenAPISpec:
