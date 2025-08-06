@@ -9,13 +9,13 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
-from src.artanis.exceptions import ValidationError
+from artanis.exceptions import ValidationError
 
 from .schema import SchemaGenerator
 
 if TYPE_CHECKING:
-    from src.artanis.middleware.response import Response
-    from src.artanis.request import Request
+    from artanis.middleware.response import Response
+    from artanis.request import Request
 
     from .spec import OpenAPISpec
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict
 
-from src.artanis.middleware.response import Response
+from artanis.middleware.response import Response
 
 if TYPE_CHECKING:
     from .spec import OpenAPISpec

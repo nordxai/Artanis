@@ -626,7 +626,7 @@ class App:
             with Path(file_path).open("w", encoding="utf-8") as f:
                 if format_type.lower() == "yaml":
                     try:
-                        import yaml  # type: ignore[import-untyped]
+                        import yaml
 
                         yaml.dump(
                             self._openapi_spec.to_dict(), f, default_flow_style=False
