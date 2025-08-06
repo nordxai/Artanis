@@ -66,6 +66,9 @@ classifiers = [
 requires-python = ">=3.8"
 dependencies = []
 
+[project.scripts]
+artanis = "artanis.cli:main"
+
 [project.urls]
 "Homepage" = "https://github.com/nordxai/artanis"
 "Repository" = "https://github.com/nordxai/artanis"

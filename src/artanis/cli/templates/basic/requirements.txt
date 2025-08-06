@@ -1,0 +1,3 @@
+# Core dependencies for {{project_name}}
+artanis>={{artanis_version}}
+uvicorn[standard]>=0.24.0

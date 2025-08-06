@@ -1,6 +1,6 @@
 """Artanis ASGI Web Framework.
 
-A lightweight, Express.js-inspired ASGI web framework for Python with
+A lightweight, fast ASGI web framework for Python with
 middleware support, path parameters, and comprehensive logging.
 """
 
