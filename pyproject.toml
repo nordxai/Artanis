@@ -70,13 +70,13 @@ dependencies = []
 artanis = "artanis.cli:main"
 
 [project.urls]
-"Homepage" = "https://github.com/nordxai/artanis"
-"Repository" = "https://github.com/nordxai/artanis"
-"Bug Reports" = "https://github.com/nordxai/artanis/issues"
-"Source Code" = "https://github.com/nordxai/artanis"
-"Issues" = "https://github.com/nordxai/artanis/issues"
-"Changelog" = "https://github.com/nordxai/artanis/releases"
-"Discussions" = "https://github.com/nordxai/artanis/discussions"
+"Homepage" = "https://github.com/nordxai/Artanis"
+"Repository" = "https://github.com/nordxai/Artanis"
+"Bug Reports" = "https://github.com/nordxai/Artanis/issues"
+"Source Code" = "https://github.com/nordxai/Artanis"
+"Issues" = "https://github.com/nordxai/Artanis/issues"
+"Changelog" = "https://github.com/nordxai/Artanis/releases"
+"Discussions" = "https://github.com/nordxai/Artanis/discussions"
 
 [project.optional-dependencies]
 dev = [

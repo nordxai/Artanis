@@ -1,13 +1,13 @@
 <div align="center">
-  <img src="assets/artanis-logo.png" alt="Artanis Framework Logo" width="200" height="200">
+  <img src="https://raw.githubusercontent.com/nordxai/Artanis/main/assets/artanis-logo.png" alt="Artanis Framework Logo" width="200" height="200">
 
   # Artanis
 
   A lightweight, minimalist ASGI web framework for Python built with simplicity and performance in mind.
 </div>
 
-[![Tests](https://github.com/nordxai/projectArtanis/actions/workflows/test.yml/badge.svg)](https://github.com/nordxai/projectArtanis/actions/workflows/test.yml)
-[![Code Quality](https://github.com/nordxai/projectArtanis/actions/workflows/code-quality.yml/badge.svg)](https://github.com/nordxai/projectArtanis/actions/workflows/code-quality.yml)
+[![Tests](https://github.com/nordxai/Artanis/actions/workflows/test.yml/badge.svg)](https://github.com/nordxai/Artanis/actions/workflows/test.yml)
+[![Code Quality](https://github.com/nordxai/Artanis/actions/workflows/code-quality.yml/badge.svg)](https://github.com/nordxai/Artanis/actions/workflows/code-quality.yml)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-Open%20Source-green.svg)](LICENSE)
 
@@ -43,7 +43,7 @@ pip install artanis
 
 ```bash
 # Clone the repository
-git clone https://github.com/nordxai/artanis
+git clone https://github.com/nordxai/Artanis
 cd artanis
 
 # Create virtual environment
@@ -120,10 +120,10 @@ The package includes extensive PyPI classifiers for optimal discoverability:
 
 ### Project URLs
 
-- **Homepage & Repository**: [github.com/nordxai/artanis](https://github.com/nordxai/artanis)
-- **Issues & Bug Reports**: [Issues Tracker](https://github.com/nordxai/artanis/issues)
-- **Discussions**: [Community Discussions](https://github.com/nordxai/artanis/discussions)
-- **Changelog**: [Release Notes](https://github.com/nordxai/artanis/releases)
+- **Homepage & Repository**: [github.com/nordxai/Artanis](https://github.com/nordxai/Artanis)
+- **Issues & Bug Reports**: [Issues Tracker](https://github.com/nordxai/Artanis/issues)
+- **Discussions**: [Community Discussions](https://github.com/nordxai/Artanis/discussions)
+- **Changelog**: [Release Notes](https://github.com/nordxai/Artanis/releases)
 
 ### Build Configuration
 
