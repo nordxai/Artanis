@@ -151,8 +151,13 @@ jobs:
 
       - name: 🔄 Update Version Files
         run: |
-          # Update _version.py
+          # Update _version.py string and tuple
           sed -i "s/__version__ = \".*\"/__version__ = \"${{ steps.version.outputs.new_version }}\"/" src/artanis/_version.py
+          sed -i "s/VERSION: tuple\[int, int, int\] = (.*/VERSION: tuple[int, int, int] = (${{ steps.version.outputs.major }}, ${{ steps.version.outputs.minor }}, ${{ steps.version.outputs.patch }})/" src/artanis/_version.py
+
+          # Update docstring examples
+          sed -i "s/'[0-9]\+\.[0-9]\+\.[0-9]\+'/'${{ steps.version.outputs.new_version }}'/g" src/artanis/_version.py
+          sed -i "s/([0-9]\+, [0-9]\+, [0-9]\+)/(${{ steps.version.outputs.major }}, ${{ steps.version.outputs.minor }}, ${{ steps.version.outputs.patch }})/g" src/artanis/_version.py
 
           # Update pyproject.toml version (if dynamic)
           if grep -q "dynamic.*version" pyproject.toml; then
@@ -165,9 +170,10 @@ jobs:
           python -c "
           import sys
           sys.path.insert(0, 'src')
-          from artanis._version import __version__
-          assert __version__ == '${{ steps.version.outputs.new_version }}', f'Version mismatch: {__version__} != ${{ steps.version.outputs.new_version }}'
-          print(f'✅ Version successfully updated to {__version__}')
+          from artanis._version import __version__, VERSION
+          assert __version__ == '${{ steps.version.outputs.new_version }}', f'Version string mismatch: {__version__} != ${{ steps.version.outputs.new_version }}'
+          assert VERSION == (${{ steps.version.outputs.major }}, ${{ steps.version.outputs.minor }}, ${{ steps.version.outputs.patch }}), f'Version tuple mismatch: {VERSION} != (${{ steps.version.outputs.major }}, ${{ steps.version.outputs.minor }}, ${{ steps.version.outputs.patch }})'
+          print(f'✅ Version successfully updated to {__version__} with tuple {VERSION}')
           "
 
       - name: 🧪 Run Tests

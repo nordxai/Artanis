@@ -33,8 +33,9 @@ class TestVersionManagement:
         # get_version() should return same as __version__
         assert get_version() == __version__
 
-        # Version should be "0.1.0" for initial release
-        assert __version__ == "0.1.0"
+        # Version should match VERSION tuple
+        expected_version = f"{VERSION[0]}.{VERSION[1]}.{VERSION[2]}"
+        assert __version__ == expected_version
 
     def test_version_tuple(self):
         """Test version tuple functionality."""
@@ -49,8 +50,12 @@ class TestVersionManagement:
         # get_version_info() should return same tuple
         assert get_version_info() == VERSION
 
-        # VERSION should match string version
-        assert VERSION == (0, 1, 0)
+        # VERSION should match string version components
+        version_parts = __version__.split(".")
+        expected_major = int(version_parts[0])
+        expected_minor = int(version_parts[1])
+        expected_patch = int(version_parts[2])
+        assert (expected_major, expected_minor, expected_patch) == VERSION
 
     def test_version_components(self):
         """Test individual version components."""
@@ -134,10 +139,16 @@ class TestVersionManagement:
         """Test that version follows semantic versioning principles."""
         major, minor, patch = VERSION
 
-        # For 0.1.0 release
-        assert major == 0  # Pre-1.0 release
-        assert minor == 1  # Minor version
-        assert patch == 0  # Initial patch level
+        # Semantic versioning compliance
+        assert major >= 0  # Major version should be non-negative
+        assert minor >= 0  # Minor version should be non-negative
+        assert patch >= 0  # Patch version should be non-negative
+
+        # For pre-1.0 releases, major should be 0
+        if major == 0:
+            assert minor >= 1 or (minor == 0 and patch > 0), (
+                "Pre-1.0 versions should have minor >= 1 or patch > 0"
+            )
 
     def test_version_string_parsing(self):
         """Test that version string can be parsed correctly."""
@@ -168,7 +179,11 @@ class TestVersionIntegration:
         # Should be able to access version through artanis module
         import artanis
 
-        assert artanis.__version__ == "0.1.0"
+        # Import version components for dynamic checking
+        from artanis._version import VERSION
+
+        expected_version = f"{VERSION[0]}.{VERSION[1]}.{VERSION[2]}"
+        assert artanis.__version__ == expected_version
 
     def test_version_in_error_responses(self):
         """Test that version info doesn't interfere with error handling."""
