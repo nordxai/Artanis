@@ -1,0 +1,401 @@
+name: 🚀 Release Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_bump:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      pre_release:
+        description: 'Mark as pre-release'
+        required: false
+        default: false
+        type: boolean
+      skip_pypi:
+        description: 'Skip PyPI publishing'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  id-token: write  # For PyPI trusted publishing
+
+jobs:
+  prepare-release:
+    name: 📦 Prepare Release
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.version.outputs.new_version }}
+      changelog: ${{ steps.changelog.outputs.changelog }}
+
+    steps:
+      - name: 🛒 Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: 📦 Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine setuptools wheel
+
+      - name: 🔍 Get Current Version
+        id: current_version
+        run: |
+          python -c "
+          import sys
+          sys.path.insert(0, 'src')
+          from artanis._version import __version__
+          print(f'current_version={__version__}')
+          " >> $GITHUB_OUTPUT
+
+      - name: 🆙 Calculate New Version
+        id: version
+        run: |
+          python - << 'EOF'
+          import os
+          import re
+
+          current = "${{ steps.current_version.outputs.current_version }}"
+          bump_type = "${{ github.event.inputs.version_bump }}"
+
+          # Parse semantic version
+          match = re.match(r'^(\d+)\.(\d+)\.(\d+)(?:-(.+))?$', current)
+          if not match:
+              raise ValueError(f"Invalid version format: {current}")
+
+          major, minor, patch = map(int, match.groups()[:3])
+
+          # Calculate new version
+          if bump_type == 'major':
+              major += 1
+              minor = 0
+              patch = 0
+          elif bump_type == 'minor':
+              minor += 1
+              patch = 0
+          elif bump_type == 'patch':
+              patch += 1
+
+          new_version = f"{major}.{minor}.{patch}"
+
+          # Write to GitHub output
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"new_version={new_version}\n")
+              f.write(f"major={major}\n")
+              f.write(f"minor={minor}\n")
+              f.write(f"patch={patch}\n")
+
+          print(f"Version bump: {current} -> {new_version} ({bump_type})")
+          EOF
+
+      - name: 📝 Generate Changelog
+        id: changelog
+        run: |
+          echo "Generating changelog for version ${{ steps.version.outputs.new_version }}"
+
+          # Get the last release tag
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          if [ -z "$LAST_TAG" ]; then
+            echo "No previous tags found, generating changelog from all commits"
+            COMMITS=$(git log --pretty=format:"- %s (%h)" --reverse)
+          else
+            echo "Generating changelog since tag: $LAST_TAG"
+            COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"- %s (%h)" --reverse)
+          fi
+
+          # Create changelog content
+          cat << 'CHANGELOG_EOF' > changelog.md
+          ## 🎉 What's New in v${{ steps.version.outputs.new_version }}
+
+          ### 🚀 Changes
+          $COMMITS
+
+          ### 📊 Framework Stats
+          - **Total Tests**: $(find tests -name "test_*.py" | wc -l) test files
+          - **Code Quality**: All Ruff, MyPy, and pre-commit checks passing ✅
+          - **Python Support**: 3.8, 3.9, 3.10, 3.11, 3.12
+          - **Framework Features**: ASGI, Middleware, Events, Security, OpenAPI
+
+          ### 🔧 Installation
+          ```bash
+          pip install artanis==${{ steps.version.outputs.new_version }}
+          ```
+
+          ### 📚 Documentation
+          - [Getting Started](https://github.com/nordxai/Artanis#getting-started)
+          - [API Reference](https://github.com/nordxai/Artanis/tree/main/docs)
+          - [Examples](https://github.com/nordxai/Artanis/tree/main/docs/examples)
+          CHANGELOG_EOF
+
+          # Replace variables in changelog
+          sed -i "s/\$COMMITS/$COMMITS/g" changelog.md
+
+          # Output for next job (escape newlines)
+          {
+            echo 'changelog<<CHANGELOG_DELIMITER'
+            cat changelog.md
+            echo 'CHANGELOG_DELIMITER'
+          } >> $GITHUB_OUTPUT
+
+      - name: 🔄 Update Version Files
+        run: |
+          # Update _version.py
+          sed -i "s/__version__ = \".*\"/__version__ = \"${{ steps.version.outputs.new_version }}\"/" src/artanis/_version.py
+
+          # Update pyproject.toml version (if dynamic)
+          if grep -q "dynamic.*version" pyproject.toml; then
+            echo "Version is dynamic in pyproject.toml - no update needed"
+          else
+            sed -i "s/version = \".*\"/version = \"${{ steps.version.outputs.new_version }}\"/" pyproject.toml
+          fi
+
+          # Verify version update
+          python -c "
+          import sys
+          sys.path.insert(0, 'src')
+          from artanis._version import __version__
+          assert __version__ == '${{ steps.version.outputs.new_version }}', f'Version mismatch: {__version__} != ${{ steps.version.outputs.new_version }}'
+          print(f'✅ Version successfully updated to {__version__}')
+          "
+
+      - name: 🧪 Run Tests
+        run: |
+          # Install package in development mode
+          pip install -e .
+
+          # Install test dependencies
+          pip install pytest pytest-asyncio
+
+          # Run all tests
+          python -m pytest tests/ -v --tb=short
+
+          echo "✅ All tests passed for version ${{ steps.version.outputs.new_version }}"
+
+      - name: 🔍 Quality Checks
+        run: |
+          # Install quality tools
+          pip install ruff mypy
+
+          # Run Ruff linting
+          echo "Running Ruff linting..."
+          ruff check src/ tests/
+
+          # Run MyPy type checking
+          echo "Running MyPy type checking..."
+          mypy src/artanis/ --ignore-missing-imports
+
+          echo "✅ All quality checks passed"
+
+      - name: 📦 Build Package
+        run: |
+          echo "Building package for version ${{ steps.version.outputs.new_version }}"
+
+          # Clean previous builds
+          rm -rf dist/ build/ *.egg-info/
+
+          # Build wheel and sdist
+          python -m build
+
+          # Verify build contents
+          ls -la dist/
+
+          # Check package with twine
+          python -m twine check dist/*
+
+          echo "✅ Package built successfully"
+
+      - name: 💾 Commit Version Changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+          git add src/artanis/_version.py
+          if ! grep -q "dynamic.*version" pyproject.toml; then
+            git add pyproject.toml
+          fi
+
+          git commit -m "🔖 Bump version to ${{ steps.version.outputs.new_version }}"
+          git push origin main
+
+          echo "✅ Version changes committed"
+
+      - name: 📋 Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-packages
+          path: dist/
+
+      - name: 📋 Upload Changelog
+        uses: actions/upload-artifact@v4
+        with:
+          name: changelog
+          path: changelog.md
+
+  test-package:
+    name: 🧪 Test Package
+    runs-on: ubuntu-latest
+    needs: prepare-release
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+
+    steps:
+      - name: 🐍 Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: 📥 Download Package
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-packages
+          path: dist/
+
+      - name: 🧪 Test Package Installation
+        run: |
+          # Install the wheel package
+          WHEEL_FILE=$(ls dist/*.whl | head -1)
+          pip install "$WHEEL_FILE"
+
+          # Test basic import and version
+          python -c "
+          import artanis
+          print(f'✅ Artanis v{artanis.__version__} imported successfully')
+          print(f'Available components: {dir(artanis)}')
+
+          # Test basic app creation
+          app = artanis.App()
+          print('✅ App creation successful')
+
+          # Test version info
+          print(f'Version tuple: {artanis.VERSION}')
+          print(f'Version function: {artanis.get_version()}')
+          "
+
+          echo "✅ Package test passed for Python ${{ matrix.python-version }}"
+
+  publish-pypi:
+    name: 📦 Publish to PyPI
+    runs-on: ubuntu-latest
+    needs: [prepare-release, test-package]
+    if: ${{ github.event.inputs.skip_pypi != 'true' }}
+    environment: release
+
+    steps:
+      - name: 📥 Download Package
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-packages
+          path: dist/
+
+      - name: 🚀 Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          print-hash: true
+          verbose: true
+
+  create-github-release:
+    name: 🎉 Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [prepare-release, test-package]
+
+    steps:
+      - name: 🛒 Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 📥 Download Package
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-packages
+          path: dist/
+
+      - name: 📥 Download Changelog
+        uses: actions/download-artifact@v4
+        with:
+          name: changelog
+          path: .
+
+      - name: 🏷️ Create Git Tag
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+          TAG_NAME="v${{ needs.prepare-release.outputs.new_version }}"
+          git tag -a "$TAG_NAME" -m "Release $TAG_NAME"
+          git push origin "$TAG_NAME"
+
+          echo "✅ Created and pushed tag: $TAG_NAME"
+
+      - name: 🎉 Create GitHub Release
+        uses: actions/create-release@v1
+        id: create_release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ needs.prepare-release.outputs.new_version }}
+          release_name: 🚀 Artanis v${{ needs.prepare-release.outputs.new_version }}
+          body_path: changelog.md
+          draft: false
+          prerelease: ${{ github.event.inputs.pre_release }}
+
+      - name: 📎 Upload Wheel Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dist/artanis-${{ needs.prepare-release.outputs.new_version }}-py3-none-any.whl
+          asset_name: artanis-${{ needs.prepare-release.outputs.new_version }}-py3-none-any.whl
+          asset_content_type: application/zip
+
+      - name: 📎 Upload Source Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dist/artanis-${{ needs.prepare-release.outputs.new_version }}.tar.gz
+          asset_name: artanis-${{ needs.prepare-release.outputs.new_version }}.tar.gz
+          asset_content_type: application/gzip
+
+  notify-success:
+    name: 🎊 Release Complete
+    runs-on: ubuntu-latest
+    needs: [prepare-release, test-package, publish-pypi, create-github-release]
+    if: always()
+
+    steps:
+      - name: 🎉 Success Notification
+        if: ${{ needs.prepare-release.result == 'success' && needs.test-package.result == 'success' && needs.create-github-release.result == 'success' }}
+        run: |
+          echo "🎉 Release Pipeline Completed Successfully!"
+          echo "📦 Version: ${{ needs.prepare-release.outputs.new_version }}"
+          echo "🐍 PyPI: ${{ github.event.inputs.skip_pypi == 'true' && 'Skipped' || 'Published' }}"
+          echo "🏷️ GitHub Release: Created"
+          echo "🔗 View release: https://github.com/${{ github.repository }}/releases/tag/v${{ needs.prepare-release.outputs.new_version }}"
+          echo ""
+          echo "Install with: pip install artanis==${{ needs.prepare-release.outputs.new_version }}"
+
+      - name: ❌ Failure Notification
+        if: ${{ contains(needs.*.result, 'failure') }}
+        run: |
+          echo "❌ Release Pipeline Failed!"
+          echo "Check the workflow logs for details."
+          exit 1

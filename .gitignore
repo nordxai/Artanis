@@ -12,3 +12,4 @@ ENV/
 context*
 dist/
 *_cache/
+deploy_to_pypi.sh
