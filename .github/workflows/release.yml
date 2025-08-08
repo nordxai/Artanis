@@ -119,7 +119,7 @@ jobs:
           fi
 
           # Create changelog content
-          cat << 'CHANGELOG_EOF' > changelog.md
+          cat > changelog.md << EOF
           ## 🎉 What's New in v${{ steps.version.outputs.new_version }}
 
           ### 🚀 Changes
@@ -132,18 +132,15 @@ jobs:
           - **Framework Features**: ASGI, Middleware, Events, Security, OpenAPI
 
           ### 🔧 Installation
-          ```bash
+          \`\`\`bash
           pip install artanis==${{ steps.version.outputs.new_version }}
-          ```
+          \`\`\`
 
           ### 📚 Documentation
           - [Getting Started](https://github.com/nordxai/Artanis#getting-started)
           - [API Reference](https://github.com/nordxai/Artanis/tree/main/docs)
           - [Examples](https://github.com/nordxai/Artanis/tree/main/docs/examples)
-          CHANGELOG_EOF
-
-          # Replace variables in changelog
-          sed -i "s/\$COMMITS/$COMMITS/g" changelog.md
+          EOF
 
           # Output for next job (escape newlines)
           {
