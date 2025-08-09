@@ -75,14 +75,6 @@ app.post("/users", create_user)
     - **📖 Excellent Documentation**: Detailed guides, tutorials, and API reference
     - **🧪 Well Tested**: 191+ comprehensive tests ensuring reliability
 
-!!! info "Framework Comparison"
-    | Feature | Artanis | FastAPI | Flask | Starlette |
-    |---------|---------|---------|-------|-----------|
-    | Zero Dependencies | ✅ | ❌ | ❌ | ❌ |
-    | Built-in Security | ✅ | ❌ | ❌ | ❌ |
-    | Express-style Middleware | ✅ | ❌ | ❌ | ❌ |
-    | Event System | ✅ | ❌ | ❌ | ❌ |
-    | Subrouting | ✅ | ❌ | ❌ | ❌ |
 
 ## What's Next?
 

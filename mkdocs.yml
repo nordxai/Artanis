@@ -95,6 +95,8 @@ nav:
       - Request: api/core/request.md
   - CLI:
     - Overview: cli/index.md
+  - Contributing:
+    - Documentation: contributing/documentation.md
 
 extra:
   social:

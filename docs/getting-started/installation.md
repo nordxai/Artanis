@@ -228,7 +228,7 @@ Now that you have Artanis installed, you're ready to:
 
 If you encounter issues during installation:
 
-1. Check our [troubleshooting guide](../contributing/development.md#troubleshooting)
+1. Check the GitHub Issues for common problems
 2. Search [existing issues](https://github.com/nordxai/Artanis/issues) on GitHub
 3. Create a [new issue](https://github.com/nordxai/Artanis/issues/new) with:
    - Your operating system and version
