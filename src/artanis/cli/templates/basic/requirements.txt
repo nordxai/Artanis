@@ -1,6 +1,6 @@
 # Core dependencies for {{project_name}}
 artanis>={{artanis_version}}
-uvicorn[standard]>=0.24.0
+uvicorn[standard]
 
 # Optional development dependencies (uncomment as needed)
 # pytest>=7.0.0                    # For testing

@@ -41,14 +41,11 @@ The server will start at `http://127.0.0.1:8000`
 
 ### 4. Verify it's working
 
-Open your browser and visit `http://127.0.0.1:8000` - you should see a welcome message with API information.
+Open your browser and visit `http://127.0.0.1:8000` - you should see a simple welcome message.
 
 ## Available Endpoints
 
-- **GET** `/` - Welcome message with API information
-- **GET** `/health` - Health check endpoint
-- **GET** `/hello/{name}` - Personalized greeting (replace `{name}` with any name)
-- **POST** `/echo` - Echo the request body back to the client
+- **GET** `/` - Simple welcome message
 
 ## Testing the API
 
@@ -57,25 +54,12 @@ Open your browser and visit `http://127.0.0.1:8000` - you should see a welcome m
 ```bash
 # Welcome message
 curl http://127.0.0.1:8000/
-
-# Health check
-curl http://127.0.0.1:8000/health
-
-# Personalized greeting
-curl http://127.0.0.1:8000/hello/world
-
-# Echo endpoint (POST with JSON)
-curl -X POST http://127.0.0.1:8000/echo \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Hello from {{project_name}}!"}'
 ```
 
 ### Using your browser
 
 Open your browser and visit:
 - http://127.0.0.1:8000/
-- http://127.0.0.1:8000/health
-- http://127.0.0.1:8000/hello/yourname
 
 ## Project Structure
 
@@ -88,11 +72,9 @@ Open your browser and visit:
 
 ## Key Features Demonstrated
 
-1. **Basic Routing**: GET and POST routes with path parameters
-2. **Request Handling**: JSON request body parsing
-3. **Response Formatting**: Structured JSON responses
-4. **Error Handling**: Basic error handling for invalid JSON
-5. **Development Server**: Hot reload during development
+1. **Basic Routing**: Simple GET route
+2. **JSON Response**: Automatic JSON serialization
+3. **Development Server**: Hot reload during development
 
 ## Next Steps
 
