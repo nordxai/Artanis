@@ -83,8 +83,7 @@ Open your browser and visit:
 {{project_name}}/
 ├── app.py              # Main application file
 ├── requirements.txt    # Project dependencies
-├── README.md          # This file
-└── .gitignore         # Git ignore rules
+└── README.md          # This file
 ```
 
 ## Key Features Demonstrated
