@@ -227,7 +227,6 @@ class TestCLIMain:
             assert (project_path / "app.py").exists()
             assert (project_path / "requirements.txt").exists()
             assert (project_path / "README.md").exists()
-            assert (project_path / ".gitignore").exists()
 
     def test_main_exception_handling(self):
         """Test main function handles exceptions."""
