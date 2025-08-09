@@ -159,6 +159,8 @@ class NewCommand:
                 print("   2. venv\\Scripts\\activate")
             else:  # Unix/Linux/macOS
                 print("   2. source venv/bin/activate")
+            print("   3. python app.py")
+        else:
             print("   2. pip install -r requirements.txt")
             print("   3. python app.py")
 

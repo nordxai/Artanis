@@ -104,6 +104,9 @@ all = [
 where = ["src"]
 include = ["artanis*"]
 
+[tool.setuptools.package-data]
+"artanis.cli.templates.basic" = ["*.py", "*.txt", "*.md", ".gitignore"]
+
 [tool.setuptools.dynamic]
 version = {attr = "artanis._version.__version__"}
 

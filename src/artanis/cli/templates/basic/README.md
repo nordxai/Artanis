@@ -6,19 +6,42 @@ This project was generated using the Artanis CLI tool and demonstrates the basic
 
 ## Quick Start
 
-### 1. Install Dependencies
+### Prerequisites
+- Python 3.8 or higher
+- pip (Python package installer)
+
+### 1. Set up your environment (recommended)
+
+Create a virtual environment to isolate your project dependencies:
+
+```bash
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+# On Windows:
+venv\Scripts\activate
+# On macOS/Linux:
+source venv/bin/activate
+```
+
+### 2. Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Run the Application
+### 3. Run the Application
 
 ```bash
 python app.py
 ```
 
 The server will start at `http://127.0.0.1:8000`
+
+### 4. Verify it's working
+
+Open your browser and visit `http://127.0.0.1:8000` - you should see a welcome message with API information.
 
 ## Available Endpoints
 
@@ -82,6 +105,38 @@ Now that you have a basic Artanis application running, you can:
 4. **Connect a database** - Integrate with your preferred database
 5. **Add tests** - Write unit tests for your endpoints
 6. **Deploy** - Deploy your application to production
+
+## Troubleshooting
+
+### Common Issues
+
+**"Command not found" errors:**
+- Make sure you have Python 3.8+ installed: `python --version`
+- Try using `python3` instead of `python` on some systems
+
+**"Permission denied" errors:**
+- On Unix systems, ensure you have the right permissions
+- Try using `sudo` if needed for global installations (not recommended for development)
+
+**Virtual environment issues:**
+- Make sure the virtual environment is activated (you should see `(venv)` in your terminal prompt)
+- If activation doesn't work, try recreating the virtual environment
+
+**Port already in use:**
+- If port 8000 is busy, edit `app.py` and change the port number in the `uvicorn.run()` call
+- Or kill the process using the port: `lsof -ti:8000 | xargs kill -9` (Unix/macOS)
+
+**Module import errors:**
+- Ensure all dependencies are installed: `pip install -r requirements.txt`
+- Check that you're using the correct Python environment
+
+### Getting Help
+
+If you encounter issues:
+1. Check the [Artanis GitHub Issues](https://github.com/nordxai/artanis/issues)
+2. Make sure you're using a supported Python version (3.8+)
+3. Try recreating your virtual environment
+4. Verify all dependencies are correctly installed
 
 ## Learn More
 
