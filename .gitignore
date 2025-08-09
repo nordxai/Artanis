@@ -13,3 +13,8 @@ context*
 dist/
 *_cache/
 deploy_to_pypi.sh
+
+# Private local development tools
+.local/
+test-release.sh
+local-*.sh
