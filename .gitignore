@@ -18,3 +18,4 @@ deploy_to_pypi.sh
 .local/
 test-release.sh
 local-*.sh
+site/
