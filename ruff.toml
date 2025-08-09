@@ -90,6 +90,7 @@ exclude = [
     "build",
     "dist",
     "*.egg-info",
+    "site/",
 ]
 
 [format]
@@ -120,6 +121,9 @@ split-on-trailing-comma = true
 ]
 "docs/*" = [
     "T201",    # print found - allowed in documentation examples
+]
+"site/*" = [
+    "T201",    # print found - allowed in generated documentation examples
 ]
 "src/artanis/cli/*" = [
     "T201",    # print found - needed for CLI user feedback
