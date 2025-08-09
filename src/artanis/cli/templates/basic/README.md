@@ -6,13 +6,32 @@ This project was generated using the Artanis CLI tool and demonstrates the basic
 
 ## Quick Start
 
-### 1. Install Dependencies
+### Prerequisites
+- Python 3.8 or higher
+- pip (Python package installer)
+
+### 1. Set up your environment (recommended)
+
+Create a virtual environment to isolate your project dependencies:
+
+```bash
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+# On Windows:
+venv\Scripts\activate
+# On macOS/Linux:
+source venv/bin/activate
+```
+
+### 2. Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Run the Application
+### 3. Run the Application
 
 ```bash
 python app.py
@@ -20,12 +39,13 @@ python app.py
 
 The server will start at `http://127.0.0.1:8000`
 
+### 4. Verify it's working
+
+Open your browser and visit `http://127.0.0.1:8000` - you should see a simple welcome message.
+
 ## Available Endpoints
 
-- **GET** `/` - Welcome message with API information
-- **GET** `/health` - Health check endpoint
-- **GET** `/hello/{name}` - Personalized greeting (replace `{name}` with any name)
-- **POST** `/echo` - Echo the request body back to the client
+- **GET** `/` - Simple welcome message
 
 ## Testing the API
 
@@ -34,25 +54,12 @@ The server will start at `http://127.0.0.1:8000`
 ```bash
 # Welcome message
 curl http://127.0.0.1:8000/
-
-# Health check
-curl http://127.0.0.1:8000/health
-
-# Personalized greeting
-curl http://127.0.0.1:8000/hello/world
-
-# Echo endpoint (POST with JSON)
-curl -X POST http://127.0.0.1:8000/echo \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Hello from {{project_name}}!"}'
 ```
 
 ### Using your browser
 
 Open your browser and visit:
 - http://127.0.0.1:8000/
-- http://127.0.0.1:8000/health
-- http://127.0.0.1:8000/hello/yourname
 
 ## Project Structure
 
@@ -60,17 +67,14 @@ Open your browser and visit:
 {{project_name}}/
 ├── app.py              # Main application file
 ├── requirements.txt    # Project dependencies
-├── README.md          # This file
-└── .gitignore         # Git ignore rules
+└── README.md          # This file
 ```
 
 ## Key Features Demonstrated
 
-1. **Basic Routing**: GET and POST routes with path parameters
-2. **Request Handling**: JSON request body parsing
-3. **Response Formatting**: Structured JSON responses
-4. **Error Handling**: Basic error handling for invalid JSON
-5. **Development Server**: Hot reload during development
+1. **Basic Routing**: Simple GET route
+2. **JSON Response**: Automatic JSON serialization
+3. **Development Server**: Hot reload during development
 
 ## Next Steps
 
@@ -82,6 +86,38 @@ Now that you have a basic Artanis application running, you can:
 4. **Connect a database** - Integrate with your preferred database
 5. **Add tests** - Write unit tests for your endpoints
 6. **Deploy** - Deploy your application to production
+
+## Troubleshooting
+
+### Common Issues
+
+**"Command not found" errors:**
+- Make sure you have Python 3.8+ installed: `python --version`
+- Try using `python3` instead of `python` on some systems
+
+**"Permission denied" errors:**
+- On Unix systems, ensure you have the right permissions
+- Try using `sudo` if needed for global installations (not recommended for development)
+
+**Virtual environment issues:**
+- Make sure the virtual environment is activated (you should see `(venv)` in your terminal prompt)
+- If activation doesn't work, try recreating the virtual environment
+
+**Port already in use:**
+- If port 8000 is busy, edit `app.py` and change the port number in the `uvicorn.run()` call
+- Or kill the process using the port: `lsof -ti:8000 | xargs kill -9` (Unix/macOS)
+
+**Module import errors:**
+- Ensure all dependencies are installed: `pip install -r requirements.txt`
+- Check that you're using the correct Python environment
+
+### Getting Help
+
+If you encounter issues:
+1. Check the [Artanis GitHub Issues](https://github.com/nordxai/artanis/issues)
+2. Make sure you're using a supported Python version (3.8+)
+3. Try recreating your virtual environment
+4. Verify all dependencies are correctly installed
 
 ## Learn More
 

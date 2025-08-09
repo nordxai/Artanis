@@ -1,3 +1,10 @@
 # Core dependencies for {{project_name}}
 artanis>={{artanis_version}}
-uvicorn[standard]>=0.24.0
+uvicorn[standard]
+
+# Optional development dependencies (uncomment as needed)
+# pytest>=7.0.0                    # For testing
+# pytest-asyncio>=0.21.0           # Async testing support
+# requests>=2.31.0                 # For API testing
+# python-dotenv>=1.0.0             # Environment variable management
+# pydantic>=2.0.0                  # Data validation and settings

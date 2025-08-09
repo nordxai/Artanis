@@ -95,80 +95,22 @@ class NewCommand:
                     # For binary files, just copy without substitution
                     shutil.copy2(template_file, target_path)
 
-    def create_virtual_environment(self, project_path: Path) -> None:
-        """Create a virtual environment and install dependencies."""
-        venv_path = project_path / "venv"
-
-        try:
-            # Create virtual environment
-            subprocess.run(
-                [sys.executable, "-m", "venv", str(venv_path)],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-
-            # Determine the correct pip path based on platform
-            if os.name == "nt":  # Windows
-                pip_path = venv_path / "Scripts" / "pip"
-            else:  # Unix/Linux/macOS
-                pip_path = venv_path / "bin" / "pip"
-
-            # Install dependencies from requirements.txt
-            requirements_path = project_path / "requirements.txt"
-            if requirements_path.exists():
-                subprocess.run(
-                    [str(pip_path), "install", "-r", str(requirements_path)],
-                    check=True,
-                    capture_output=True,
-                    text=True,
-                )
-
-        except subprocess.CalledProcessError as e:
-            # Check if it's a common venv installation issue
-            if "ensurepip" in str(e) or "python3-venv" in str(e):
-                msg = (
-                    "Virtual environment creation failed. On Ubuntu/Debian systems, "
-                    "install python3-venv with: sudo apt install python3.8-venv"
-                )
-            else:
-                msg = f"Failed to create virtual environment: {e}"
-            raise RuntimeError(msg) from e
-        except FileNotFoundError as e:
-            msg = f"Python venv module not available: {e}. Please install Python with venv support."
-            raise RuntimeError(msg) from e
-
-    def display_success_message(
-        self, project_name: str, project_path: Path, venv_created: bool = False
-    ) -> None:
+    def display_success_message(self, project_name: str, project_path: Path) -> None:
         """Display success message and next steps."""
         print(f"✅ Successfully created new Artanis project: {project_name}")
         print(f"📁 Project created at: {project_path}")
 
-        if venv_created:
-            venv_path = project_path / "venv"
-            print(f"🐍 Virtual environment created: {venv_path}")
-            print("📦 Dependencies installed")
-
         print()
         print("📋 Next steps:")
         print(f"   1. cd {project_name}")
-
-        if venv_created:
-            if os.name == "nt":  # Windows
-                print("   2. venv\\Scripts\\activate")
-            else:  # Unix/Linux/macOS
-                print("   2. source venv/bin/activate")
-            print("   2. pip install -r requirements.txt")
-            print("   3. python app.py")
+        print("   2. pip install -r requirements.txt")
+        print("   3. python app.py")
 
         print()
         print("🌐 Your server will be available at: http://127.0.0.1:8000")
         print("📚 Check the README.md file for more information.")
 
-    def execute(
-        self, project_name: str, base_directory: str, venv: bool, force: bool
-    ) -> int:
+    def execute(self, project_name: str, base_directory: str, force: bool) -> int:
         """Execute the new command."""
         try:
             # Validate project name
@@ -182,14 +124,8 @@ class NewCommand:
             # Copy template files
             self.copy_template_files(project_path, project_name)
 
-            # Create virtual environment if requested
-            venv_created = False
-            if venv:
-                self.create_virtual_environment(project_path)
-                venv_created = True
-
             # Display success message
-            self.display_success_message(project_name, project_path, venv_created)
+            self.display_success_message(project_name, project_path)
 
             return 0
 
