@@ -8,10 +8,10 @@ following PEP 396 and setuptools best practices.
 from __future__ import annotations
 
 # Version information
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 # Version components for programmatic access
-VERSION: tuple[int, int, int] = (0, 1, 1)
+VERSION: tuple[int, int, int] = (0, 1, 2)
 
 # Version info tuple (similar to sys.version_info)
 version_info = VERSION
@@ -27,7 +27,7 @@ def get_version() -> str:
     Example:
         >>> from artanis._version import get_version
         >>> get_version()
-        '0.1.1'
+        '0.1.2'
     """
     return __version__
 
@@ -42,6 +42,6 @@ def get_version_info() -> tuple[int, int, int]:
     Example:
         >>> from artanis._version import get_version_info
         >>> get_version_info()
-        (0, 1, 1)
+        (0, 1, 2)
     """
     return VERSION
