@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./assets/artanis-logo.png" alt="Artanis Framework Logo" width="200" height="200">
+  <img src="https://raw.githubusercontent.com/nordxai/Artanis/main/assets/artanis-logo.png" alt="Artanis Framework Logo" width="200" height="200">
 
   # Artanis
 

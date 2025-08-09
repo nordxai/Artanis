@@ -8,10 +8,10 @@ following PEP 396 and setuptools best practices.
 from __future__ import annotations
 
 # Version information
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 
 # Version components for programmatic access
-VERSION: tuple[int, int, int] = (0, 1, 2)
+VERSION: tuple[int, int, int] = (0, 1, 3)
 
 # Version info tuple (similar to sys.version_info)
 version_info = VERSION
