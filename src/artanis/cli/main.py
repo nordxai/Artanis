@@ -52,12 +52,6 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     new_parser.add_argument(
-        "--venv",
-        action="store_true",
-        help="Create a virtual environment and install dependencies",
-    )
-
-    new_parser.add_argument(
         "--force",
         "-f",
         action="store_true",
@@ -84,7 +78,6 @@ def main(args: list[str] | None = None) -> int:
             return command.execute(
                 project_name=parsed_args.project_name,
                 base_directory=parsed_args.base_directory,
-                venv=parsed_args.venv,
                 force=parsed_args.force,
             )
         print(f"Unknown command: {parsed_args.command}", file=sys.stderr)

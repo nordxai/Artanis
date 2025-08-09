@@ -30,7 +30,6 @@ class TestCLIParser:
         assert args.command == "new"
         assert args.project_name == "test-project"
         assert args.base_directory == "."
-        assert args.venv is False
         assert args.force is False
 
         # Test with base directory
@@ -38,15 +37,13 @@ class TestCLIParser:
         assert args.command == "new"
         assert args.project_name == "my-app"
         assert args.base_directory == "/tmp"
-        assert args.venv is False
         assert args.force is False
 
-        # Test with all options
-        args = parser.parse_args(["new", "my-app", "/tmp", "--venv", "--force"])
+        # Test with force option
+        args = parser.parse_args(["new", "my-app", "/tmp", "--force"])
         assert args.command == "new"
         assert args.project_name == "my-app"
         assert args.base_directory == "/tmp"
-        assert args.venv is True
         assert args.force is True
 
 
@@ -110,7 +107,11 @@ class TestNewCommand:
 
                 with patch.object(command, "copy_template_files"):
                     with patch.object(command, "display_success_message"):
-                        result = command.execute("test-project", temp_dir, False, False)
+                        result = command.execute(
+                            project_name="test-project",
+                            base_directory=temp_dir,
+                            force=False,
+                        )
 
                         assert result == 0
                         project_path = Path(temp_dir) / "test-project"
@@ -126,7 +127,9 @@ class TestNewCommand:
             project_dir.mkdir()
             (project_dir / "existing_file.txt").write_text("test")
 
-            result = command.execute("existing-project", temp_dir, False, False)
+            result = command.execute(
+                project_name="existing-project", base_directory=temp_dir, force=False
+            )
             assert result == 1
 
     def test_create_project_existing_directory_with_force(self):
@@ -147,58 +150,15 @@ class TestNewCommand:
                 with patch.object(command, "copy_template_files"):
                     with patch.object(command, "display_success_message"):
                         result = command.execute(
-                            "existing-project", temp_dir, False, True
+                            project_name="existing-project",
+                            base_directory=temp_dir,
+                            force=True,
                         )
 
                         assert result == 0
                         assert project_dir.exists()
                         # Original file should be gone due to force flag
                         assert not (project_dir / "existing_file.txt").exists()
-
-    def test_virtual_environment_creation(self):
-        """Test virtual environment creation with --venv flag."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            command = NewCommand()
-
-            # Mock template directory and subprocess calls
-            with patch.object(command, "template_dir") as mock_template_dir:
-                mock_template_dir.exists.return_value = True
-                mock_template_dir.rglob.return_value = []
-
-                with patch.object(command, "copy_template_files"):
-                    with patch("subprocess.run") as mock_subprocess:
-                        with patch.object(command, "display_success_message"):
-                            mock_subprocess.return_value = (
-                                None  # Successful subprocess call
-                            )
-
-                            result = command.execute(
-                                "test-project", temp_dir, True, False
-                            )
-
-                            assert result == 0
-                            # Verify subprocess was called for venv creation
-                            assert mock_subprocess.call_count >= 1
-
-    def test_virtual_environment_creation_failure(self):
-        """Test virtual environment creation failure handling."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            command = NewCommand()
-
-            # Mock template directory and subprocess calls
-            with patch.object(command, "template_dir") as mock_template_dir:
-                mock_template_dir.exists.return_value = True
-                mock_template_dir.rglob.return_value = []
-
-                with patch.object(command, "copy_template_files"):
-                    with patch("subprocess.run") as mock_subprocess:
-                        mock_subprocess.side_effect = subprocess.CalledProcessError(
-                            1, "venv"
-                        )
-
-                        result = command.execute("test-project", temp_dir, True, False)
-
-                        assert result == 1  # Should fail
 
 
 class TestCLIMain:
@@ -234,20 +194,6 @@ class TestCLIMain:
         with tempfile.TemporaryDirectory() as temp_dir:
             result = main(["new", "123invalid", temp_dir])
             assert result == 1
-
-    def test_main_with_venv_flag(self):
-        """Test main function with --venv flag."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            with patch("subprocess.run") as mock_subprocess:
-                mock_subprocess.return_value = None  # Successful subprocess call
-
-                result = main(["new", "test-project", temp_dir, "--venv"])
-                assert result == 0
-
-                # Verify project was created
-                project_path = Path(temp_dir) / "test-project"
-                assert project_path.exists()
-                assert (project_path / "app.py").exists()
 
     def test_main_with_dot_directory(self):
         """Test main function with current directory specified as '.'."""
